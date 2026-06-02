@@ -1,0 +1,52 @@
+{
+  "expo": {
+    "name": "SnapNest",
+    "slug": "snapnest",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "snapnest",
+    "ios": {
+      "bundleIdentifier": "com.sunnysant.snapnest.dev",
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSCameraUsageDescription": "SnapNest needs camera access so you can record videos directly inside the app.",
+        "NSMicrophoneUsageDescription": "SnapNest needs microphone access to record audio with your videos.",
+        "NSPhotoLibraryUsageDescription": "SnapNest needs photo access so you can upload existing videos and images.",
+        "NSPhotoLibraryAddUsageDescription": "SnapNest saves recorded videos to your photo library.",
+        "UIBackgroundModes": [
+          "fetch",
+          "processing"
+        ]
+      }
+    },
+    "plugins": [
+      "expo-dev-client",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow SnapNest to access your camera to record videos."
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow SnapNest to access your photos to upload them.",
+          "savePhotosPermission": "Allow SnapNest to save videos to your library."
+        }
+      ]
+    ],
+    "android": {
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.READ_MEDIA_AUDIO"
+      ],
+      "package": "com.yourname.snapnest"
+    }
+  }
+}
