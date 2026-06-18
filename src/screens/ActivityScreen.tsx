@@ -16,7 +16,9 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { ActivityFeedRow } from '../components/ActivityFeedRow';
 import { GlassCard } from '../components/GlassCard';
 import type { ActivityFeedItem } from '../hooks/useActivityFeed';
+import { useMediaViewer } from '../context/MediaViewerContext';
 import { useActivityFeed } from '../hooks/useActivityFeed';
+import { useBatchViewUrls } from '../hooks/useBatchViewUrls';
 import type { MediaFile } from '../services/filesService';
 import { useAuthStore } from '../store/authStore';
 import { colors } from '../theme/colors';
@@ -32,7 +34,17 @@ export function ActivityScreen(): React.ReactElement {
   const firstName = useAuthStore((s) => s.user?.firstName);
   const displayName = firstName?.trim() ? firstName.trim() : 'there';
 
+  const { openFile } = useMediaViewer();
   const { items, isLoading, isError, error, refetch, isRefetching } = useActivityFeed();
+
+  const uploadedFileIds = useMemo((): string[] => {
+    return items
+      .filter((entry) => entry.kind === 'file' && entry.item.uploadStatus === 'UPLOADED')
+      .map((entry) => (entry.kind === 'file' ? entry.item.id : ''))
+      .filter((id) => id.length > 0);
+  }, [items]);
+
+  const { data: viewUrlByFileId } = useBatchViewUrls(uploadedFileIds);
 
   const listBottomPad = insets.bottom + TAB_BAR_BOTTOM_OFFSET + TAB_BAR_OUTER_HEIGHT + spacing.md;
 
@@ -40,17 +52,26 @@ export function ActivityScreen(): React.ReactElement {
     void refetch();
   }, [refetch]);
 
-  const handlePressFile = useCallback((file: MediaFile) => {
-    console.log('Open file:', file.id);
-  }, []);
+  const handlePressFile = useCallback(
+    (file: MediaFile) => {
+      openFile(file);
+    },
+    [openFile],
+  );
 
   const keyExtractor = useCallback((entry: ActivityFeedItem): string => {
     return entry.kind === 'queue' ? `queue:${entry.item.id}` : `file:${entry.item.id}`;
   }, []);
 
   const renderItem: ListRenderItem<ActivityFeedItem> = useCallback(
-    ({ item }) => <ActivityFeedRow entry={item} onPressFile={handlePressFile} />,
-    [handlePressFile],
+    ({ item }) => (
+      <ActivityFeedRow
+        entry={item}
+        onPressFile={handlePressFile}
+        viewUrlByFileId={viewUrlByFileId}
+      />
+    ),
+    [handlePressFile, viewUrlByFileId],
   );
 
   const showInitialLoading = isLoading && items.length === 0;
@@ -124,7 +145,6 @@ export function ActivityScreen(): React.ReactElement {
             data={items}
             keyExtractor={keyExtractor}
             renderItem={renderItem}
-            ItemSeparatorComponent={Separator}
             contentContainerStyle={[styles.listContent, { paddingBottom: listBottomPad }]}
             refreshControl={refreshControl}
             showsVerticalScrollIndicator={false}
@@ -133,10 +153,6 @@ export function ActivityScreen(): React.ReactElement {
       </SafeAreaView>
     </LinearGradient>
   );
-}
-
-function Separator(): React.ReactElement {
-  return <View style={styles.separator} />;
 }
 
 const styles = StyleSheet.create({
@@ -187,7 +203,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: 12,
-    backgroundColor: 'rgba(47,128,237,0.12)',
+    backgroundColor: colors.accentBlueMuted,
   },
   retryPressed: {
     opacity: 0.85,
@@ -212,11 +228,5 @@ const styles = StyleSheet.create({
   },
   listContent: {
     flexGrow: 1,
-  },
-  separator: {
-    height: 1,
-    backgroundColor: colors.border,
-    opacity: 0.5,
-    marginVertical: spacing.xs,
   },
 });

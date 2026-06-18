@@ -109,6 +109,7 @@ async function processItem(item: UploadQueueItem): Promise<void> {
 
     // 4. Refresh the Activity tab's files list so the new MediaFile shows up.
     void queryClient.invalidateQueries({ queryKey: FILES_QUERY_KEY });
+    void queryClient.invalidateQueries({ queryKey: ['batchViewUrls'] });
 
     // 5. Auto-clean successful items so Activity doesn't grow unbounded.
     setTimeout(() => {

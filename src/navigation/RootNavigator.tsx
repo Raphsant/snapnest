@@ -2,17 +2,13 @@ import React, { useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { GlassTabBar } from '../components/GlassTabBar';
-import type { AuthStackParamList } from './authTypes';
+import { AuthFlow } from './AuthFlow';
 import type { MainTabParamList } from './mainTabTypes';
 import { ActivityScreen } from '../screens/ActivityScreen';
 import { CameraScreen } from '../screens/CameraScreen';
-import { ConfirmSignUpScreen } from '../screens/auth/ConfirmSignUpScreen';
-import { LoginScreen } from '../screens/auth/LoginScreen';
-import { SignUpScreen } from '../screens/auth/SignUpScreen';
-import { FoldersScreen } from '../screens/FoldersScreen';
+import { FoldersStack } from './FoldersStack';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { processQueue } from '../services/uploadManager';
 import { selectIsAuthenticated, useAuthStore } from '../store/authStore';
@@ -20,7 +16,6 @@ import { useUploadQueueStore } from '../store/uploadQueueStore';
 import { colors } from '../theme/colors';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
-const AuthStack = createNativeStackNavigator<AuthStackParamList>();
 
 function MainTabs() {
   return (
@@ -32,7 +27,7 @@ function MainTabs() {
         headerShown: false,
       }}
     >
-      <Tab.Screen name="Folders" component={FoldersScreen} options={{ title: 'Folders', tabBarLabel: 'Folders' }} />
+      <Tab.Screen name="Folders" component={FoldersStack} options={{ title: 'Folders', tabBarLabel: 'Folders' }} />
       <Tab.Screen
         name="Camera"
         component={CameraScreen}
@@ -45,22 +40,6 @@ function MainTabs() {
       <Tab.Screen name="Activity" component={ActivityScreen} options={{ title: 'Activity', tabBarLabel: 'Activity' }} />
       <Tab.Screen name="Settings" component={SettingsScreen} options={{ title: 'Settings', tabBarLabel: 'Settings' }} />
     </Tab.Navigator>
-  );
-}
-
-function AuthNavigator() {
-  return (
-    <AuthStack.Navigator
-      initialRouteName="Login"
-      screenOptions={{
-        headerShown: false,
-        contentStyle: { backgroundColor: colors.background },
-      }}
-    >
-      <AuthStack.Screen name="Login" component={LoginScreen} />
-      <AuthStack.Screen name="SignUp" component={SignUpScreen} />
-      <AuthStack.Screen name="ConfirmSignUp" component={ConfirmSignUpScreen} />
-    </AuthStack.Navigator>
   );
 }
 
@@ -112,7 +91,7 @@ function RootNavigationTree() {
     return <MainTabs />;
   }
 
-  return <AuthNavigator />;
+  return <AuthFlow />;
 }
 
 export function RootNavigator() {

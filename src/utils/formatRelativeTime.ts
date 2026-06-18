@@ -33,6 +33,36 @@ export function formatRelativeTime(iso: string): string {
   return new Date(then).toLocaleDateString();
 }
 
+/** Full date/time for metadata panels (e.g. "May 12, 2026 at 2:34 PM"). */
+export function formatFullDateTime(iso: string): string {
+  const then = Date.parse(iso);
+  if (Number.isNaN(then)) {
+    return '';
+  }
+  return new Date(then).toLocaleString(undefined, {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+export function formatFileSize(sizeBytes: string | number): string {
+  const bytes =
+    typeof sizeBytes === 'number' ? sizeBytes : Number.parseInt(sizeBytes, 10);
+  if (!Number.isFinite(bytes) || bytes < 0) {
+    return '—';
+  }
+  if (bytes < 1024) {
+    return `${bytes} B`;
+  }
+  if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toFixed(1)} KB`;
+  }
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export function truncateFileName(name: string, maxChars: number): string {
   if (name.length <= maxChars) {
     return name;

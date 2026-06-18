@@ -9,7 +9,7 @@ const SIXTY_SECONDS = 60_000;
 export function useFiles(): UseQueryResult<MediaFile[], Error> {
   return useQuery<MediaFile[], Error>({
     queryKey: FILES_QUERY_KEY,
-    queryFn: getUserFiles,
+    queryFn: () => getUserFiles(),
     staleTime: SIXTY_SECONDS,
     refetchOnWindowFocus: false,
   });

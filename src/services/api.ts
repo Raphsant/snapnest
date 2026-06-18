@@ -1,8 +1,30 @@
 import axios, { AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
+import Constants from 'expo-constants';
 
 import { getAuthToken } from './authService';
 
-export const API_BASE_URL = 'http://10.0.0.174:3000';
+const BACKEND_PORT = 3000;
+
+/** Fallback when Metro host can't be inferred (update if you use a fixed LAN IP). */
+const FALLBACK_DEV_API_HOST = '10.0.0.25';
+
+function resolveDevApiHost(): string {
+  const hostUri =
+    Constants.expoConfig?.hostUri ??
+    Constants.expoGoConfig?.debuggerHost ??
+    null;
+
+  const host = hostUri?.split(':')[0]?.trim();
+  if (host && host.length > 0) {
+    return host;
+  }
+
+  return FALLBACK_DEV_API_HOST;
+}
+
+export const API_BASE_URL = __DEV__
+  ? `http://${resolveDevApiHost()}:${BACKEND_PORT}`
+  : `http://${FALLBACK_DEV_API_HOST}:${BACKEND_PORT}`;
 
 export const apiClient: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
@@ -25,6 +47,8 @@ apiClient.interceptors.request.use(
 );
 
 if (__DEV__) {
+  console.log('[API] baseURL:', API_BASE_URL);
+
   apiClient.interceptors.request.use(
     (config: InternalAxiosRequestConfig): InternalAxiosRequestConfig => {
       console.log('[API][Request]', {

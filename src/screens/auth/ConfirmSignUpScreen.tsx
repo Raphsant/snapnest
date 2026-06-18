@@ -9,17 +9,16 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PrimaryButton } from '../../components/PrimaryButton';
-import type { AuthStackParamList } from '../../navigation/authTypes';
+import type { AuthScreenProps } from '../../navigation/authTypes';
 import * as authService from '../../services/authService';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 
-type Props = NativeStackScreenProps<AuthStackParamList, 'ConfirmSignUp'>;
+type Props = AuthScreenProps<'ConfirmSignUp'>;
 
 export function ConfirmSignUpScreen({ navigation, route }: Props) {
   const { email, firstName } = route.params;

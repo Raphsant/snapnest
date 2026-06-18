@@ -43,8 +43,85 @@ function normalizeFilesResponse(data: FilesEnvelope): MediaFile[] {
   return [];
 }
 
+export type FileViewUrl = {
+  viewUrl: string;
+  expiresAt: string;
+  mimeType: string;
+  fileName: string;
+};
+
+export type BatchFileViewUrlItem = {
+  fileId: string;
+  fullUrl: string;
+  thumbnailUrl: string | null;
+};
+
+const VIEW_URL_TTL_MS = 60 * 60 * 1000;
+
+/** GET /files?folderId=none — only files with folderId IS NULL. */
+export const UNFILED_FILES_FOLDER_PARAM = 'none' as const;
+
+export type GetUserFilesOptions = {
+  /** Omit for all files; `'none'` for unfiled only; UUID for a specific folder. */
+  folderId?: string;
+};
+
 /** Auth interceptor in apiClient attaches the JWT automatically. */
-export async function getUserFiles(): Promise<MediaFile[]> {
-  const response = await apiClient.get<FilesEnvelope>('/files');
+export async function getUserFiles(options?: GetUserFilesOptions): Promise<MediaFile[]> {
+  const params =
+    options?.folderId !== undefined ? { folderId: options.folderId } : undefined;
+  const response = await apiClient.get<FilesEnvelope>('/files', { params });
   return normalizeFilesResponse(response.data);
+}
+
+/** Presigned GET URLs for feed thumbnails and full-size viewing (1h TTL). */
+export async function getBatchViewUrls(fileIds: string[]): Promise<BatchFileViewUrlItem[]> {
+  if (fileIds.length === 0) {
+    return [];
+  }
+  const response = await apiClient.post<BatchFileViewUrlItem[]>('/files/view-urls', {
+    fileIds,
+  });
+  return response.data;
+}
+
+export type DeleteFileResponse = {
+  success: boolean;
+  deletedFileId: string;
+};
+
+/** Permanently deletes the cloud copy (S3 + DB). Does not remove from the device camera roll. */
+export async function deleteFile(fileId: string): Promise<DeleteFileResponse> {
+  const response = await apiClient.delete<DeleteFileResponse>(`/files/${fileId}`);
+  return response.data;
+}
+
+/** Assign a file to a folder, or pass `null` to unfile it. */
+export async function moveFileToFolder(
+  fileId: string,
+  folderId: string | null,
+): Promise<MediaFile> {
+  const response = await apiClient.patch<MediaFile>(`/files/${fileId}/folder`, {
+    folderId,
+  });
+  const data = response.data;
+  return {
+    ...data,
+    sizeBytes: String(data.sizeBytes),
+  };
+}
+
+/** Full-resolution presigned GET for the media viewer (uses batch endpoint). */
+export async function getFileViewUrl(fileId: string): Promise<FileViewUrl> {
+  const items = await getBatchViewUrls([fileId]);
+  const item = items[0];
+  if (item === undefined) {
+    throw new Error('Media file not found or not ready to view');
+  }
+  return {
+    viewUrl: item.fullUrl,
+    expiresAt: new Date(Date.now() + VIEW_URL_TTL_MS).toISOString(),
+    mimeType: '',
+    fileName: '',
+  };
 }

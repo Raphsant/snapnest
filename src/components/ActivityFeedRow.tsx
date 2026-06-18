@@ -1,7 +1,8 @@
 import React, { memo, useCallback } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { GlassCard } from './GlassCard';
 import type { ActivityFeedItem } from '../hooks/useActivityFeed';
 import { retryUpload } from '../services/uploadManager';
 import type { MediaFile } from '../services/filesService';
@@ -9,6 +10,7 @@ import type { UploadQueueItem } from '../types/upload';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
+import type { ViewUrlByFileId } from '../hooks/useBatchViewUrls';
 import { formatRelativeTime, truncateFileName } from '../utils/formatRelativeTime';
 
 const FILENAME_MAX_CHARS = 32;
@@ -23,6 +25,7 @@ const TINT_MUTED = 'rgba(130, 154, 177, 0.15)';
 type ActivityFeedRowProps = {
   entry: ActivityFeedItem;
   onPressFile?: (file: MediaFile) => void;
+  viewUrlByFileId?: ViewUrlByFileId;
 };
 
 function isVideoMime(mime: string): boolean {
@@ -75,8 +78,17 @@ function queueIcon(item: UploadQueueItem): IconConfig {
   }
 }
 
-function FileRow({ file, onPress }: { file: MediaFile; onPress?: (file: MediaFile) => void }): React.ReactElement {
+function FileRow({
+  file,
+  onPress,
+  viewUrlByFileId,
+}: {
+  file: MediaFile;
+  onPress?: (file: MediaFile) => void;
+  viewUrlByFileId?: ViewUrlByFileId;
+}): React.ReactElement {
   const icon = fileIcon(file.mimeType);
+  const thumbnailUri = viewUrlByFileId?.[file.id]?.thumbnailUrl ?? null;
   const handlePress = useCallback(() => {
     onPress?.(file);
   }, [file, onPress]);
@@ -84,7 +96,11 @@ function FileRow({ file, onPress }: { file: MediaFile; onPress?: (file: MediaFil
   return (
     <Pressable onPress={handlePress} style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}>
       <View style={[styles.iconSquare, { backgroundColor: icon.tint }]}>
-        <Ionicons name={icon.name} size={20} color={icon.color} />
+        {thumbnailUri !== null ? (
+          <Image source={{ uri: thumbnailUri }} style={styles.thumbnail} />
+        ) : (
+          <Ionicons name={icon.name} size={20} color={icon.color} />
+        )}
       </View>
       <View style={styles.middle}>
         <Text style={styles.fileName} numberOfLines={1}>
@@ -154,16 +170,31 @@ function QueueStatusBadge({ item }: { item: UploadQueueItem }): React.ReactEleme
   }
 }
 
-function ActivityFeedRowBase({ entry, onPressFile }: ActivityFeedRowProps): React.ReactElement {
-  if (entry.kind === 'file') {
-    return <FileRow file={entry.item} onPress={onPressFile} />;
-  }
-  return <QueueRow item={entry.item} />;
+function ActivityFeedRowBase({
+  entry,
+  onPressFile,
+  viewUrlByFileId,
+}: ActivityFeedRowProps): React.ReactElement {
+  const inner =
+    entry.kind === 'file' ? (
+      <FileRow file={entry.item} onPress={onPressFile} viewUrlByFileId={viewUrlByFileId} />
+    ) : (
+      <QueueRow item={entry.item} />
+    );
+
+  return (
+    <GlassCard intensity={64} style={styles.card}>
+      {inner}
+    </GlassCard>
+  );
 }
 
 export const ActivityFeedRow = memo(ActivityFeedRowBase);
 
 const styles = StyleSheet.create({
+  card: {
+    marginVertical: spacing.xs,
+  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -180,6 +211,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.md,
+    overflow: 'hidden',
+  },
+  thumbnail: {
+    width: 40,
+    height: 40,
   },
   middle: {
     flex: 1,

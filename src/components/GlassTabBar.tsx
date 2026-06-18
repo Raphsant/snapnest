@@ -164,9 +164,7 @@ export function GlassTabBar({ state, descriptors, navigation }: BottomTabBarProp
             <View style={styles.row}>
               <View style={styles.sideCluster}>{leftRoutes.map((route) => renderSideTab(route))}</View>
               <View style={styles.centerSpacer} />
-              {/* Right cluster left-aligns its lone tab so it mirrors Activity's */}
-              {/* position around the FAB, instead of drifting to its own center. */}
-              <View style={[styles.sideCluster, styles.sideClusterRight]}>
+              <View style={styles.sideCluster}>
                 {rightRoutes.map((route) => renderSideTab(route))}
               </View>
             </View>
@@ -180,7 +178,7 @@ export function GlassTabBar({ state, descriptors, navigation }: BottomTabBarProp
           <Pressable
             accessibilityRole="button"
             accessibilityState={fabFocused ? { selected: true } : {}}
-            hitSlop={12}
+            hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
             onPress={onFabPress}
             style={({ pressed }) => [styles.fabPressable, pressed && { opacity: 0.94 }]}
           >
@@ -248,9 +246,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     alignItems: 'center',
   },
-  sideClusterRight: {
-    justifyContent: 'flex-start',
-  },
   centerSpacer: {
     width: FAB_SIZE + 8,
   },
@@ -280,10 +275,10 @@ const styles = StyleSheet.create({
   fabPressable: {
     borderRadius: FAB_SIZE / 2,
     overflow: 'hidden',
-    shadowColor: colors.accentBlue,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 16,
+    shadowColor: colors.cameraFabShadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 14,
     elevation: 10,
   },
   fabGradient: {
