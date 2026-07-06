@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 
@@ -8,6 +8,7 @@ import { AuthFlow } from './AuthFlow';
 import type { MainTabParamList } from './mainTabTypes';
 import { ActivityScreen } from '../screens/ActivityScreen';
 import { AgencyStack } from './AgencyStack';
+import { AgencyUpsellScreen } from '../screens/AgencyUpsellScreen';
 import { CameraScreen } from '../screens/CameraScreen';
 import { FoldersStack } from './FoldersStack';
 import { SettingsScreen } from '../screens/SettingsScreen';
@@ -16,13 +17,78 @@ import { processQueue } from '../services/uploadManager';
 import { selectIsAuthenticated, useAuthStore } from '../store/authStore';
 import { useUploadQueueStore } from '../store/uploadQueueStore';
 import { colors } from '../theme/colors';
+import { spacing } from '../theme/spacing';
+import { typography } from '../theme/typography';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
-function MainTabs() {
+/**
+ * Agency tab is always visible; what renders inside depends on /me:
+ * - memberships → existing AgencyStack workspace
+ * - no memberships → upsell placeholder
+ * - /me pending or failed → spinner / retry (never flash the upsell at members)
+ */
+function AgencyTab(): React.ReactElement {
   const meQuery = useMe();
-  const showAgency = (meQuery.data?.memberships.length ?? 0) > 0;
 
+  if (meQuery.data === undefined) {
+    return (
+      <View style={agencyTabStyles.container}>
+        {meQuery.isError ? (
+          <>
+            <Text style={agencyTabStyles.errorText}>Couldn&apos;t load your account</Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Retry loading account"
+              onPress={() => void meQuery.refetch()}
+              style={({ pressed }) => [agencyTabStyles.retryButton, pressed && agencyTabStyles.retryPressed]}
+            >
+              <Text style={agencyTabStyles.retryLabel}>Tap to retry</Text>
+            </Pressable>
+          </>
+        ) : (
+          <ActivityIndicator size="large" color={colors.accentBlue} />
+        )}
+      </View>
+    );
+  }
+
+  if (meQuery.data.memberships.length > 0) {
+    return <AgencyStack />;
+  }
+
+  return <AgencyUpsellScreen />;
+}
+
+const agencyTabStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.background,
+  },
+  errorText: {
+    ...typography.body,
+    color: colors.mutedText,
+    marginBottom: spacing.md,
+  },
+  retryButton: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: 12,
+    backgroundColor: colors.accentBlueMuted,
+  },
+  retryPressed: {
+    opacity: 0.85,
+  },
+  retryLabel: {
+    ...typography.bodySmall,
+    color: colors.accentBlue,
+    fontWeight: '600',
+  },
+});
+
+function MainTabs() {
   return (
     <Tab.Navigator
       initialRouteName="Camera"
@@ -43,9 +109,7 @@ function MainTabs() {
         }}
       />
       <Tab.Screen name="Activity" component={ActivityScreen} options={{ title: 'Activity', tabBarLabel: 'Activity' }} />
-      {showAgency ? (
-        <Tab.Screen name="Agency" component={AgencyStack} options={{ title: 'Agency', tabBarLabel: 'Agency' }} />
-      ) : null}
+      <Tab.Screen name="Agency" component={AgencyTab} options={{ title: 'Agency', tabBarLabel: 'Agency' }} />
       <Tab.Screen name="Settings" component={SettingsScreen} options={{ title: 'Settings', tabBarLabel: 'Settings' }} />
     </Tab.Navigator>
   );

@@ -18,6 +18,12 @@ type AuthState = {
 type AuthActions = {
   setUser: (user: AuthUser | null) => void;
   clearUser: () => void;
+  /**
+   * Session wipe: drops all user data. Keeps `isHydrated: true` on purpose —
+   * hydration already ran this launch, and RootNavigationTree would otherwise
+   * sit on the splash screen forever (its hydrate effect only runs on mount).
+   */
+  reset: () => void;
   hydrate: () => Promise<void>;
 };
 
@@ -45,6 +51,10 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
 
   clearUser: () => {
     set({ user: null });
+  },
+
+  reset: () => {
+    set({ user: null, isLoading: false });
   },
 
   hydrate: async () => {

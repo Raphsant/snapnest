@@ -20,6 +20,12 @@ type UploadQueueActions = {
   clearCompleted: () => void;
   /** After a force-quit, items left in 'uploading' should be reattempted. */
   resetStuckUploads: () => void;
+  /**
+   * Session wipe: drops every queue item, including persisted ones (the
+   * persist middleware writes the empty state back to AsyncStorage). Pending
+   * uploads from the previous session must never run under the next account.
+   */
+  reset: () => void;
 };
 
 export const useUploadQueueStore = create<UploadQueueState & UploadQueueActions>()(
@@ -88,6 +94,10 @@ export const useUploadQueueStore = create<UploadQueueState & UploadQueueActions>
               : item,
           ),
         }));
+      },
+
+      reset: (): void => {
+        set({ items: [] });
       },
     }),
     {

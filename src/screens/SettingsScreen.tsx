@@ -3,6 +3,7 @@ import { Alert, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import * as authService from '../services/authService';
+import * as sessionService from '../services/sessionService';
 import { SecondaryButton } from '../components/SecondaryButton';
 import { useAuthStore } from '../store/authStore';
 import { colors } from '../theme/colors';
@@ -18,16 +19,14 @@ export function SettingsScreen() {
   const footerBottomPad = insets.bottom + TAB_BAR_BOTTOM_OFFSET + TAB_BAR_OUTER_HEIGHT + spacing.md;
 
   const email = useAuthStore((s) => s.user?.email);
-  const clearUser = useAuthStore((s) => s.clearUser);
   const [loggingOut, setLoggingOut] = useState(false);
 
   const handleLogOut = async (): Promise<void> => {
     setLoggingOut(true);
     try {
-      await authService.signOut();
-      clearUser();
+      await sessionService.logout();
     } catch (error: unknown) {
-      console.error('[SettingsScreen] signOut', error);
+      console.error('[SettingsScreen] logout', error);
     } finally {
       setLoggingOut(false);
     }
