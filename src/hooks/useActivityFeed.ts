@@ -38,6 +38,10 @@ export function useActivityFeed(): UseActivityFeedResult {
         // Hide local row once backend has the record; useFiles will surface it.
         continue;
       }
+      if (queueItem.agencyId) {
+        // Agency submissions belong to the Agency tab, not the personal feed.
+        continue;
+      }
       merged.push({
         kind: 'queue',
         item: queueItem,

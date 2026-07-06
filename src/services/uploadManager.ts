@@ -90,6 +90,8 @@ async function processItem(item: UploadQueueItem): Promise<void> {
       mimeType: item.mimeType,
       sizeBytes: item.sizeBytes,
       source: item.source,
+      ...(item.folderId ? { folderId: item.folderId } : {}),
+      ...(item.agencyId ? { agencyId: item.agencyId } : {}),
     });
 
     getStore().updateItem(id, {
@@ -107,8 +109,12 @@ async function processItem(item: UploadQueueItem): Promise<void> {
 
     getStore().updateItem(id, { status: 'uploaded', progress: 100, errorMessage: null });
 
-    // 4. Refresh the Activity tab's files list so the new MediaFile shows up.
-    void queryClient.invalidateQueries({ queryKey: FILES_QUERY_KEY });
+    // 4. Refresh the list that will surface the new MediaFile.
+    if (item.agencyId) {
+      void queryClient.invalidateQueries({ queryKey: ['agency'] });
+    } else {
+      void queryClient.invalidateQueries({ queryKey: FILES_QUERY_KEY });
+    }
     void queryClient.invalidateQueries({ queryKey: ['batchViewUrls'] });
 
     // 5. Auto-clean successful items so Activity doesn't grow unbounded.

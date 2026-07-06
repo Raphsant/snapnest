@@ -1,4 +1,6 @@
+import { useEvent } from 'expo';
 import { BlurView } from 'expo-blur';
+import { VideoView, useVideoPlayer } from 'expo-video';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
@@ -33,6 +35,7 @@ const VIEWER_BACKGROUND = '#000000';
 const METADATA_PANEL_HEIGHT = 320;
 const METADATA_ANIM_MS = 250;
 const PAGER_WINDOW_SIZE = 3;
+const VIDEO_LOAD_ERROR_MESSAGE = 'Couldn\u2019t load video';
 
 function isVideoFile(file: MediaFile): boolean {
   return file.fileType === 'VIDEO' || file.mimeType.trim().toLowerCase().startsWith('video/');
@@ -65,12 +68,80 @@ function folderLabel(file: MediaFile): string | null {
   return null;
 }
 
+type MediaLoadErrorProps = {
+  message: string;
+  onRetry: () => void;
+};
+
+function MediaLoadError({ message, onRetry }: MediaLoadErrorProps): React.ReactElement {
+  return (
+    <View style={styles.errorBox}>
+      <Ionicons name="image-outline" size={40} color={colors.tabInactive} />
+      <Text style={styles.errorTitle}>{message}</Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Retry loading media"
+        onPress={onRetry}
+        style={({ pressed }) => [styles.retryChip, pressed && styles.retryPressed]}
+      >
+        <Text style={styles.retryLabel}>Retry</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+type VideoPlaybackProps = {
+  fullUrl: string;
+  isActive: boolean;
+  onRetryUrls: () => void;
+};
+
+/**
+ * Mounted only once a presigned URL is available, so the player hook always
+ * has a real source. `useVideoPlayer` releases the player on unmount and
+ * recreates it when the URL changes (e.g. a fresh presigned URL after retry).
+ */
+function VideoPlayback({ fullUrl, isActive, onRetryUrls }: VideoPlaybackProps): React.ReactElement {
+  const player = useVideoPlayer(fullUrl);
+  const { status } = useEvent(player, 'statusChange', { status: player.status });
+
+  // Pause when the user swipes to a neighbouring page; the page itself stays
+  // mounted (pager window), so audio would otherwise keep playing.
+  useEffect(() => {
+    if (!isActive) {
+      player.pause();
+    }
+  }, [isActive, player]);
+
+  return (
+    <View style={styles.videoFill}>
+      <VideoView
+        player={player}
+        style={styles.videoFill}
+        contentFit="contain"
+        nativeControls
+      />
+      {status === 'loading' ? (
+        <View style={styles.videoOverlay} pointerEvents="none">
+          <ActivityIndicator size="large" color={colors.card} />
+        </View>
+      ) : null}
+      {status === 'error' ? (
+        <View style={[styles.videoOverlay, styles.videoErrorBackdrop]}>
+          <MediaLoadError message={VIDEO_LOAD_ERROR_MESSAGE} onRetry={onRetryUrls} />
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 type GalleryPageProps = {
   file: MediaFile;
   pageWidth: number;
   pageHeight: number;
   fullUrl: string | undefined;
   isUrlLoading: boolean;
+  isActive: boolean;
   onToggleMetadata: () => void;
   onRetryUrls: () => void;
 };
@@ -81,6 +152,7 @@ function GalleryPage({
   pageHeight,
   fullUrl,
   isUrlLoading,
+  isActive,
   onToggleMetadata,
   onRetryUrls,
 }: GalleryPageProps): React.ReactElement {
@@ -94,10 +166,15 @@ function GalleryPage({
   if (isVideo) {
     return (
       <View style={[styles.page, { width: pageWidth, height: pageHeight }]}>
-        <View style={styles.videoPlaceholder}>
-          <Ionicons name="play-circle" size={72} color={colors.tabInactive} />
-          <Text style={styles.videoTitle}>Video playback coming soon</Text>
-        </View>
+        {isUrlLoading ? <ActivityIndicator size="large" color={colors.card} /> : null}
+
+        {!isUrlLoading && fullUrl === undefined ? (
+          <MediaLoadError message={VIDEO_LOAD_ERROR_MESSAGE} onRetry={onRetryUrls} />
+        ) : null}
+
+        {!isUrlLoading && fullUrl !== undefined ? (
+          <VideoPlayback fullUrl={fullUrl} isActive={isActive} onRetryUrls={onRetryUrls} />
+        ) : null}
       </View>
     );
   }
@@ -146,6 +223,7 @@ type MetadataPanelProps = {
   bottomInset: number;
   translateY: Animated.Value;
   onMoveToFolder: () => void;
+  showMoveAction: boolean;
 };
 
 function MetadataPanel({
@@ -154,6 +232,7 @@ function MetadataPanel({
   bottomInset,
   translateY,
   onMoveToFolder,
+  showMoveAction,
 }: MetadataPanelProps): React.ReactElement {
   const typeLabel = isVideoFile(file) ? 'Video' : 'Photo';
   const duration = formatDuration(file.durationSeconds);
@@ -192,15 +271,17 @@ function MetadataPanel({
               <Text style={styles.metaValue}>{row.value}</Text>
             </View>
           ))}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Move to folder"
-            onPress={onMoveToFolder}
-            style={({ pressed }) => [styles.moveButton, pressed && styles.moveButtonPressed]}
-          >
-            <Ionicons name="folder-outline" size={20} color={colors.card} />
-            <Text style={styles.moveButtonLabel}>Move to folder</Text>
-          </Pressable>
+          {showMoveAction ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Move to folder"
+              onPress={onMoveToFolder}
+              style={({ pressed }) => [styles.moveButton, pressed && styles.moveButtonPressed]}
+            >
+              <Ionicons name="folder-outline" size={20} color={colors.card} />
+              <Text style={styles.moveButtonLabel}>Move to folder</Text>
+            </Pressable>
+          ) : null}
         </View>
       </BlurView>
     </Animated.View>
@@ -212,7 +293,8 @@ export function MediaViewerModal(): React.ReactElement {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const queryClient = useQueryClient();
 
-  const { isOpen, files, currentIndex, setCurrentIndex, close, updateFile } = useMediaViewer();
+  const { isOpen, files, currentIndex, agencyId, readOnly, setCurrentIndex, close, updateFile } =
+    useMediaViewer();
   const [showMetadata, setShowMetadata] = useState(false);
   const [pickerVisible, setPickerVisible] = useState(false);
   const metadataY = useRef(new Animated.Value(METADATA_PANEL_HEIGHT)).current;
@@ -228,7 +310,7 @@ export function MediaViewerModal(): React.ReactElement {
     data: viewUrlByFileId,
     isLoading: urlsLoading,
     refetch: refetchUrls,
-  } = useBatchViewUrls(isOpen ? uploadedFileIds : []);
+  } = useBatchViewUrls(isOpen ? uploadedFileIds : [], agencyId ?? undefined);
 
   const currentFile = files[currentIndex] ?? null;
 
@@ -307,18 +389,20 @@ export function MediaViewerModal(): React.ReactElement {
   );
 
   const renderPage: ListRenderItem<MediaFile> = useCallback(
-    ({ item }) => (
+    ({ item, index }) => (
       <GalleryPage
         file={item}
         pageWidth={screenWidth}
         pageHeight={pageHeight}
         fullUrl={viewUrlByFileId?.[item.id]?.fullUrl}
         isUrlLoading={urlsLoading && viewUrlByFileId?.[item.id] === undefined}
+        isActive={index === currentIndex}
         onToggleMetadata={handleToggleMetadata}
         onRetryUrls={handleRetryUrls}
       />
     ),
     [
+      currentIndex,
       handleRetryUrls,
       handleToggleMetadata,
       pageHeight,
@@ -380,7 +464,21 @@ export function MediaViewerModal(): React.ReactElement {
           <Text style={styles.counter}>
             {currentIndex + 1} of {files.length}
           </Text>
-          <View style={styles.topBarSpacer} />
+          {currentFile !== null && isVideoFile(currentFile) ? (
+            // Native video controls consume taps, so videos get an explicit
+            // info button instead of the photos' tap-to-toggle gesture.
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Toggle video details"
+              hitSlop={16}
+              onPress={handleToggleMetadata}
+              style={({ pressed }) => [styles.closeButton, pressed && styles.closePressed]}
+            >
+              <Ionicons name="information-circle-outline" size={26} color={colors.card} />
+            </Pressable>
+          ) : (
+            <View style={styles.topBarSpacer} />
+          )}
         </View>
 
         {currentFile !== null ? (
@@ -390,6 +488,7 @@ export function MediaViewerModal(): React.ReactElement {
             bottomInset={insets.bottom}
             translateY={metadataY}
             onMoveToFolder={handleMoveToFolder}
+            showMoveAction={!readOnly}
           />
         ) : null}
 
@@ -421,15 +520,17 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  videoPlaceholder: {
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingHorizontal: spacing.xl,
+  videoFill: {
+    width: '100%',
+    height: '100%',
   },
-  videoTitle: {
-    ...typography.body,
-    color: colors.tabInactive,
-    textAlign: 'center',
+  videoOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  videoErrorBackdrop: {
+    backgroundColor: VIEWER_BACKGROUND,
   },
   errorBox: {
     alignItems: 'center',

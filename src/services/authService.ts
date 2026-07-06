@@ -150,7 +150,7 @@ export async function getAuthToken(): Promise<string | null> {
   try {
     const session = await fetchAuthSession();
     const token = session.tokens?.idToken?.toString() ?? null;
-    console.log('🔑 JWT FOR TESTING:', token);
+  
     return token;
   } catch {
     return null;

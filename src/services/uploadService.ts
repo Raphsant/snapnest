@@ -7,6 +7,7 @@ export type UploadFileInput = {
   mimeType: string;
   sizeBytes: number;
   folderId?: string;
+  agencyId?: string;
   source: UploadSource;
 };
 

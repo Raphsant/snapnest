@@ -74,14 +74,22 @@ export async function getUserFiles(options?: GetUserFilesOptions): Promise<Media
   return normalizeFilesResponse(response.data);
 }
 
-/** Presigned GET URLs for feed thumbnails and full-size viewing (1h TTL). */
-export async function getBatchViewUrls(fileIds: string[]): Promise<BatchFileViewUrlItem[]> {
+/**
+ * Presigned GET URLs for feed thumbnails and full-size viewing (1h TTL).
+ * Pass `agencyId` to authorize by agency membership instead of personal ownership.
+ */
+export async function getBatchViewUrls(
+  fileIds: string[],
+  agencyId?: string,
+): Promise<BatchFileViewUrlItem[]> {
   if (fileIds.length === 0) {
     return [];
   }
-  const response = await apiClient.post<BatchFileViewUrlItem[]>('/files/view-urls', {
-    fileIds,
-  });
+  const body: { fileIds: string[]; agencyId?: string } = { fileIds };
+  if (agencyId !== undefined) {
+    body.agencyId = agencyId;
+  }
+  const response = await apiClient.post<BatchFileViewUrlItem[]>('/files/view-urls', body);
   return response.data;
 }
 

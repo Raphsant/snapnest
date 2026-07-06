@@ -22,9 +22,15 @@ function resolveDevApiHost(): string {
   return FALLBACK_DEV_API_HOST;
 }
 
-export const API_BASE_URL = __DEV__
-  ? `http://${resolveDevApiHost()}:${BACKEND_PORT}`
-  : `http://${FALLBACK_DEV_API_HOST}:${BACKEND_PORT}`;
+const resolvedBaseUrl =
+  process.env.EXPO_PUBLIC_API_URL ??
+  (__DEV__ ? `http://${resolveDevApiHost()}:${BACKEND_PORT}` : undefined);
+
+if (!resolvedBaseUrl) {
+  throw new Error('EXPO_PUBLIC_API_URL is not set for this build');
+}
+
+export const API_BASE_URL: string = resolvedBaseUrl;
 
 export const apiClient: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,

@@ -7,9 +7,11 @@ import { GlassTabBar } from '../components/GlassTabBar';
 import { AuthFlow } from './AuthFlow';
 import type { MainTabParamList } from './mainTabTypes';
 import { ActivityScreen } from '../screens/ActivityScreen';
+import { AgencyStack } from './AgencyStack';
 import { CameraScreen } from '../screens/CameraScreen';
 import { FoldersStack } from './FoldersStack';
 import { SettingsScreen } from '../screens/SettingsScreen';
+import { useMe } from '../hooks/useMe';
 import { processQueue } from '../services/uploadManager';
 import { selectIsAuthenticated, useAuthStore } from '../store/authStore';
 import { useUploadQueueStore } from '../store/uploadQueueStore';
@@ -18,6 +20,9 @@ import { colors } from '../theme/colors';
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
 function MainTabs() {
+  const meQuery = useMe();
+  const showAgency = (meQuery.data?.memberships.length ?? 0) > 0;
+
   return (
     <Tab.Navigator
       initialRouteName="Camera"
@@ -38,6 +43,9 @@ function MainTabs() {
         }}
       />
       <Tab.Screen name="Activity" component={ActivityScreen} options={{ title: 'Activity', tabBarLabel: 'Activity' }} />
+      {showAgency ? (
+        <Tab.Screen name="Agency" component={AgencyStack} options={{ title: 'Agency', tabBarLabel: 'Agency' }} />
+      ) : null}
       <Tab.Screen name="Settings" component={SettingsScreen} options={{ title: 'Settings', tabBarLabel: 'Settings' }} />
     </Tab.Navigator>
   );

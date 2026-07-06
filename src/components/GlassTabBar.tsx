@@ -22,6 +22,7 @@ const SIDE_ICONS: Record<
 > = {
   Folders: { active: 'folder', inactive: 'folder-outline' },
   Activity: { active: 'time', inactive: 'time-outline' },
+  Agency: { active: 'business', inactive: 'business-outline' },
   Settings: { active: 'settings', inactive: 'settings-outline' },
 };
 
@@ -60,12 +61,14 @@ export function GlassTabBar({ state, descriptors, navigation }: BottomTabBarProp
   const { leftRoutes, rightRoutes } = useMemo(() => {
     const folders = state.routes.find((r) => r.name === 'Folders');
     const activity = state.routes.find((r) => r.name === 'Activity');
+    const agency = state.routes.find((r) => r.name === 'Agency');
     const settings = state.routes.find((r) => r.name === 'Settings');
     return {
-      // 2 tabs on the left, 1 tab on the right. The Camera FAB occupies the visual
-      // center via the fixed-width centerSpacer below.
+      // Folders + Activity on the left; Agency (only when present for agency-linked
+      // users) + Settings on the right. The Camera FAB occupies the visual center
+      // via the fixed-width centerSpacer below. Any unknown/absent route is dropped.
       leftRoutes: [folders, activity].filter(Boolean) as typeof state.routes,
-      rightRoutes: [settings].filter(Boolean) as typeof state.routes,
+      rightRoutes: [agency, settings].filter(Boolean) as typeof state.routes,
     };
   }, [state.routes]);
 

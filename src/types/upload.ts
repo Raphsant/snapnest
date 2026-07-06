@@ -16,6 +16,9 @@ export type UploadQueueItem = {
   backendFileId: string | null;
   backendUploadId: string | null;
   createdAt: number;
+  /** Set when submitting into an agency workspace folder; null for personal captures. */
+  agencyId: string | null;
+  folderId: string | null;
 };
 
 export type EnqueueUploadInput = {
@@ -24,4 +27,6 @@ export type EnqueueUploadInput = {
   mimeType: string;
   sizeBytes: number;
   source: UploadSource;
+  agencyId?: string | null;
+  folderId?: string | null;
 };

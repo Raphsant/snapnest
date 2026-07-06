@@ -43,6 +43,8 @@ export const useUploadQueueStore = create<UploadQueueState & UploadQueueActions>
           backendFileId: null,
           backendUploadId: null,
           createdAt: Date.now(),
+          agencyId: input.agencyId ?? null,
+          folderId: input.folderId ?? null,
         };
         set((state) => ({ items: [...state.items, newItem] }));
         return id;

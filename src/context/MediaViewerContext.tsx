@@ -3,11 +3,21 @@ import React, { createContext, useCallback, useContext, useMemo, useState } from
 import { MediaViewerModal } from '../components/MediaViewerModal';
 import type { MediaFile } from '../services/filesService';
 
+/** Extra context for a gallery session — e.g. agency-scoped, read-only viewing. */
+export type OpenGalleryOptions = {
+  /** When set, view URLs are authorized by agency membership instead of ownership. */
+  agencyId?: string;
+  /** Hides mutating actions (e.g. "Move to folder") — used for agency media. */
+  readOnly?: boolean;
+};
+
 export type MediaViewerContextValue = {
   isOpen: boolean;
   files: MediaFile[];
   currentIndex: number;
-  openGallery: (files: MediaFile[], startIndex: number) => void;
+  agencyId: string | null;
+  readOnly: boolean;
+  openGallery: (files: MediaFile[], startIndex: number, options?: OpenGalleryOptions) => void;
   /** Opens a single-file gallery (e.g. Activity tab). */
   openFile: (file: MediaFile) => void;
   close: () => void;
@@ -20,6 +30,8 @@ const CLOSED_STATE = {
   isOpen: false,
   files: [] as MediaFile[],
   currentIndex: 0,
+  agencyId: null as string | null,
+  readOnly: false,
 };
 
 function clampIndex(index: number, length: number): number {
@@ -34,13 +46,22 @@ const MediaViewerContext = createContext<MediaViewerContextValue | null>(null);
 export function MediaViewerProvider({ children }: { children: React.ReactNode }): React.ReactElement {
   const [state, setState] = useState(CLOSED_STATE);
 
-  const openGallery = useCallback((files: MediaFile[], startIndex: number) => {
-    if (files.length === 0) {
-      return;
-    }
-    const index = clampIndex(startIndex, files.length);
-    setState({ isOpen: true, files, currentIndex: index });
-  }, []);
+  const openGallery = useCallback(
+    (files: MediaFile[], startIndex: number, options?: OpenGalleryOptions) => {
+      if (files.length === 0) {
+        return;
+      }
+      const index = clampIndex(startIndex, files.length);
+      setState({
+        isOpen: true,
+        files,
+        currentIndex: index,
+        agencyId: options?.agencyId ?? null,
+        readOnly: options?.readOnly ?? false,
+      });
+    },
+    [],
+  );
 
   const openFile = useCallback(
     (file: MediaFile) => {
@@ -80,6 +101,8 @@ export function MediaViewerProvider({ children }: { children: React.ReactNode })
       isOpen: state.isOpen,
       files: state.files,
       currentIndex: state.currentIndex,
+      agencyId: state.agencyId,
+      readOnly: state.readOnly,
       openGallery,
       openFile,
       close,
