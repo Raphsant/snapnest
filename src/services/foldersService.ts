@@ -10,6 +10,8 @@ export type Folder = {
   createdAt: string;
   updatedAt: string;
   fileCount: number;
+  /** Exactly one folder per user (the "Unfiled" folder) has this true. */
+  isSystem: boolean;
 };
 
 export type FolderDetails = {
@@ -30,6 +32,7 @@ type BackendFolderWithCount = {
   parentFolderId: string | null;
   createdAt: string;
   updatedAt: string;
+  isSystem: boolean;
   _count: BackendFolderCount;
 };
 
@@ -55,6 +58,7 @@ function mapFolder(row: BackendFolderWithCount): Folder {
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     fileCount: row._count.files,
+    isSystem: row.isSystem,
   };
 }
 
@@ -68,6 +72,7 @@ function mapFolderFromBare(row: BackendFolder, fileCount: number): Folder {
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     fileCount,
+    isSystem: row.isSystem,
   };
 }
 

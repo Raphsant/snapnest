@@ -19,12 +19,7 @@ import {
 } from 'react-native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { useNavigation } from '@react-navigation/native';
-import {
-  PinchGestureHandler,
-  State,
-  type PinchGestureHandlerGestureEvent,
-  type PinchGestureHandlerStateChangeEvent,
-} from 'react-native-gesture-handler';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import type { MainTabParamList } from '../navigation/mainTabTypes';
@@ -33,9 +28,12 @@ import { PrimaryButton } from '../components/PrimaryButton';
 import { CameraFlash } from '../components/CameraFlash';
 import { RuleOfThirdsGrid, TimerCountdown } from '../components/CameraOverlays';
 import { CaptureToast, type CaptureToastType } from '../components/CaptureToast';
+import { DestinationPickerSheet } from '../components/DestinationPickerSheet';
+import { useFolders } from '../hooks/useFolders';
 import { enqueueUpload } from '../services/uploadManager';
 import { generateThumbnail } from '../services/thumbnailService';
 import { useAuthStore } from '../store/authStore';
+import { useCameraStore } from '../store/cameraStore';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
@@ -53,7 +51,11 @@ const ZOOM_SENSITIVITY = 0.5;
  * Fire-and-forget — queues the captured file for background upload.
  * Never awaited by the capture flow so the UI stays instant.
  */
-async function queueCaptureUpload(uri: string, kind: 'photo' | 'video'): Promise<void> {
+async function queueCaptureUpload(
+  uri: string,
+  kind: 'photo' | 'video',
+  folderId: string | null,
+): Promise<void> {
   try {
     const info = await FileSystem.getInfoAsync(uri);
     if (!info.exists) {
@@ -67,6 +69,7 @@ async function queueCaptureUpload(uri: string, kind: 'photo' | 'video'): Promise
     // Best-effort local thumbnail; null on failure falls back to the server-side path.
     const thumbnailUri = await generateThumbnail({ localUri: uri, mimeType });
 
+    // folderId null = system "Unfiled"; processItem omits it from POST /uploads.
     enqueueUpload({
       localUri: uri,
       fileName,
@@ -74,6 +77,7 @@ async function queueCaptureUpload(uri: string, kind: 'photo' | 'video'): Promise
       sizeBytes,
       source: 'camera',
       thumbnailUri,
+      folderId,
     });
   } catch (error) {
     console.error('[CameraScreen] failed to enqueue upload', error);
@@ -111,6 +115,27 @@ export function CameraScreen() {
   const [countdown, setCountdown] = useState<number | null>(null);
   const [zoom, setZoom] = useState(0);
   const baseZoomRef = useRef(0);
+  // Mirrors the latest zoom so the stable gesture object can read it without a dep.
+  const zoomRef = useRef(0);
+  zoomRef.current = zoom;
+
+  // Upload destination (personal folders). null = system "Unfiled" default.
+  const destinationFolderId = useCameraStore((s) => s.destinationFolderId);
+  const setDestinationFolder = useCameraStore((s) => s.setDestinationFolder);
+  const foldersQuery = useFolders();
+  const [destPickerVisible, setDestPickerVisible] = useState(false);
+
+  // If the selected folder is deleted (or otherwise vanishes from the list),
+  // fall back to the Unfiled default so the chip and the upload target agree.
+  const foldersData = foldersQuery.data;
+  useEffect(() => {
+    if (!foldersData || destinationFolderId === null) {
+      return;
+    }
+    if (!foldersData.some((folder) => folder.id === destinationFolderId)) {
+      setDestinationFolder(null);
+    }
+  }, [foldersData, destinationFolderId, setDestinationFolder]);
 
   const shutterScale = useRef(new Animated.Value(1)).current;
   const recordMorph = useRef(new Animated.Value(0)).current;
@@ -142,17 +167,24 @@ export function CameraScreen() {
     setFacing((prev) => (prev === 'back' ? 'front' : 'back'));
   }, [isRecording]);
 
-  const onPinchGesture = useCallback((event: PinchGestureHandlerGestureEvent): void => {
-    const next = baseZoomRef.current + (event.nativeEvent.scale - 1) * ZOOM_SENSITIVITY;
-    setZoom(Math.min(1, Math.max(0, next)));
-  }, []);
-
-  const onPinchStateChange = useCallback((event: PinchGestureHandlerStateChangeEvent): void => {
-    // Capture the zoom level at gesture start so deltas accumulate from there.
-    if (event.nativeEvent.state === State.BEGAN) {
-      baseZoomRef.current = zoom;
-    }
-  }, [zoom]);
+  // Modern Gesture API (not the classic PinchGestureHandler): GestureDetector
+  // re-attaches its recognizer via a ref callback, so pinch survives the tab
+  // blur/refocus that recycles the camera's Fabric view. .runOnJS keeps the
+  // callbacks on the JS thread (no reanimated dependency needed).
+  const pinchGesture = useMemo(
+    () =>
+      Gesture.Pinch()
+        .runOnJS(true)
+        .onBegin(() => {
+          // Capture the zoom level at gesture start so deltas accumulate from there.
+          baseZoomRef.current = zoomRef.current;
+        })
+        .onUpdate((event) => {
+          const next = baseZoomRef.current + (event.scale - 1) * ZOOM_SENSITIVITY;
+          setZoom(Math.min(1, Math.max(0, next)));
+        }),
+    [],
+  );
 
   /** One control: cycles photo flash (off→auto→on) or toggles the video torch. */
   const cycleFlashOrTorch = useCallback((): void => {
@@ -212,6 +244,15 @@ export function CameraScreen() {
 
   const flashActive = mode === 'video' ? torchOn : photoFlash !== 'off';
   const flashAutoBadge = mode === 'photo' && photoFlash === 'auto';
+
+  // Chip label: selected folder's name, defaulting to the system folder ("Unfiled").
+  const destinationLabel = useMemo((): string => {
+    const folders = foldersQuery.data ?? [];
+    if (destinationFolderId === null) {
+      return folders.find((folder) => folder.isSystem)?.name ?? 'Unfiled';
+    }
+    return folders.find((folder) => folder.id === destinationFolderId)?.name ?? 'Unfiled';
+  }, [foldersQuery.data, destinationFolderId]);
 
   const showToast = useCallback((message: string, type: CaptureToastType): void => {
     if (toastTimeoutRef.current) {
@@ -342,7 +383,9 @@ export function CameraScreen() {
       setShowFlash(true);
       const saved = await saveCapture(photo.uri);
       if (saved) {
-        void queueCaptureUpload(photo.uri, 'photo');
+        // Read the destination live: a self-timer countdown can fire long after
+        // capture was requested, and the closure value would be stale.
+        void queueCaptureUpload(photo.uri, 'photo', useCameraStore.getState().destinationFolderId);
       }
     } catch (error) {
       console.error('Photo capture failed', error);
@@ -369,7 +412,8 @@ export function CameraScreen() {
       }
       const saved = await saveCapture(video.uri);
       if (saved) {
-        void queueCaptureUpload(video.uri, 'video');
+        // Read the destination live (see photo capture) to avoid a stale closure.
+        void queueCaptureUpload(video.uri, 'video', useCameraStore.getState().destinationFolderId);
       }
     } catch (error) {
       console.error('Video recording failed', error);
@@ -564,8 +608,8 @@ export function CameraScreen() {
     }
 
     return (
-      <PinchGestureHandler onGestureEvent={onPinchGesture} onHandlerStateChange={onPinchStateChange}>
-        <Animated.View style={[styles.viewfinder, { opacity: viewfinderOpacity }]}>
+      <GestureDetector gesture={pinchGesture}>
+        <Animated.View collapsable={false} style={[styles.viewfinder, { opacity: viewfinderOpacity }]}>
           <CameraView
             ref={cameraRef}
             style={styles.camera}
@@ -579,7 +623,7 @@ export function CameraScreen() {
             zoom={zoom}
           />
         </Animated.View>
-      </PinchGestureHandler>
+      </GestureDetector>
     );
   };
 
@@ -640,6 +684,29 @@ export function CameraScreen() {
           </View>
         </View>
       </SafeAreaView>
+
+      {showControls ? (
+        <Pressable
+          onPress={() => setDestPickerVisible(true)}
+          disabled={isRecording}
+          style={({ pressed }) => [
+            styles.destinationChip,
+            { top: controlColumnTop },
+            isRecording && styles.iconDisabled,
+            pressed && styles.iconPressed,
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel={`Upload destination: ${destinationLabel}`}
+          accessibilityHint="Opens the destination picker"
+          accessibilityState={{ expanded: destPickerVisible }}
+        >
+          <Ionicons name="folder-outline" size={16} color={colors.card} />
+          <Text style={styles.destinationChipText} numberOfLines={1}>
+            {destinationLabel}
+          </Text>
+          <Ionicons name="chevron-down" size={14} color={colors.card} />
+        </Pressable>
+      ) : null}
 
       {showControls ? (
         <View style={[styles.controlColumn, { top: controlColumnTop }]} pointerEvents="box-none">
@@ -782,6 +849,12 @@ export function CameraScreen() {
         </View>
       ) : null}
       {countdown !== null ? <TimerCountdown seconds={countdown} /> : null}
+      <DestinationPickerSheet
+        visible={destPickerVisible}
+        selectedFolderId={destinationFolderId}
+        onSelect={setDestinationFolder}
+        onClose={() => setDestPickerVisible(false)}
+      />
       <CameraFlash visible={showFlash} onComplete={() => setShowFlash(false)} />
     </View>
   );
@@ -884,6 +957,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.md,
     zIndex: 20,
+  },
+  destinationChip: {
+    position: 'absolute',
+    left: spacing.lg,
+    maxWidth: '55%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    zIndex: 20,
+  },
+  destinationChipText: {
+    ...typography.bodySmall,
+    color: colors.card,
+    fontWeight: '600',
+    flexShrink: 1,
   },
   controlButton: {
     width: 44,

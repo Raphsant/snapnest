@@ -1,6 +1,7 @@
 import * as authService from './authService';
 import { queryClient } from './queryClient';
 import { useAuthStore } from '../store/authStore';
+import { useCameraStore } from '../store/cameraStore';
 import { useUploadQueueStore } from '../store/uploadQueueStore';
 
 /**
@@ -14,6 +15,7 @@ import { useUploadQueueStore } from '../store/uploadQueueStore';
  *    data to the next render while refetching.
  * 3. Upload queue reset — clears queued/failed items (memory + AsyncStorage)
  *    so the previous user's pending uploads never run under the next account.
+ *    Camera destination reset too, so the pick never leaks across accounts.
  * 4. Auth store reset LAST — this is what flips the UI to AuthFlow, so by
  *    the time anything re-renders, every other cache is already empty.
  */
@@ -21,5 +23,6 @@ export async function logout(): Promise<void> {
   await authService.signOut();
   queryClient.clear();
   useUploadQueueStore.getState().reset();
+  useCameraStore.getState().reset();
   useAuthStore.getState().reset();
 }

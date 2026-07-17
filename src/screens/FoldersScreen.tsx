@@ -125,17 +125,28 @@ export function FoldersScreen({ navigation }: Props): React.ReactElement {
   const { data: unfiledFiles } = useUnfiledFiles();
 
   const listBottomPad = insets.bottom + TAB_BAR_BOTTOM_OFFSET + TAB_BAR_OUTER_HEIGHT + spacing.md;
-  const unfiledCount = unfiledFiles?.length;
+
+  // The backend now files unfiled uploads into a real per-user system folder
+  // (isSystem). Represent it as the single pinned "Unfiled" entry and keep it
+  // out of the editable folder rows so it can't be duplicated, renamed, or deleted.
+  const systemFolder = useMemo(
+    () => (folders ?? []).find((folder) => folder.isSystem),
+    [folders],
+  );
+  const unfiledCount = systemFolder ? systemFolder.fileCount : unfiledFiles?.length;
 
   const listEntries = useMemo<FolderListEntry[]>(() => {
     const entries: FolderListEntry[] = [{ kind: 'unfiled', id: UNFILED_ENTRY_ID }];
     for (const folder of folders ?? []) {
+      if (folder.isSystem) {
+        continue;
+      }
       entries.push({ kind: 'folder', id: folder.id, folder });
     }
     return entries;
   }, [folders]);
 
-  const folderList = folders ?? [];
+  const folderList = (folders ?? []).filter((folder) => !folder.isSystem);
   const showFoldersSpinner = foldersLoading && folders === undefined;
   const showFoldersError = foldersError && folders === undefined;
   const showEmptyHint = !foldersLoading && !foldersError && folderList.length === 0;
@@ -145,11 +156,13 @@ export function FoldersScreen({ navigation }: Props): React.ReactElement {
   }, [refetchFolders]);
 
   const openUnfiled = useCallback(() => {
+    // Open the real system folder (where unfiled uploads now live); fall back to
+    // the legacy null-folder view only until that folder exists on the backend.
     navigation.navigate('FolderDetail', {
-      folderId: UNFILED_FILES_FOLDER_PARAM,
-      folderName: 'Unfiled',
+      folderId: systemFolder ? systemFolder.id : UNFILED_FILES_FOLDER_PARAM,
+      folderName: systemFolder ? systemFolder.name : 'Unfiled',
     });
-  }, [navigation]);
+  }, [navigation, systemFolder]);
 
   const openFolder = useCallback(
     (folder: Folder) => {
