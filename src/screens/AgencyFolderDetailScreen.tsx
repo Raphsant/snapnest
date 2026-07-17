@@ -25,6 +25,7 @@ import { useBatchViewUrls } from '../hooks/useBatchViewUrls';
 import type { AgencyFolderDetailScreenProps } from '../navigation/agencyTypes';
 import type { MediaFile } from '../services/filesService';
 import { enqueueUpload } from '../services/uploadManager';
+import { generateThumbnail } from '../services/thumbnailService';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
@@ -123,14 +124,20 @@ export function AgencyFolderDetailScreen({ navigation, route }: Props): React.Re
 
       const asset = result.assets[0];
       const fileName = asset.fileName ?? `upload-${Date.now()}`;
+      const mimeType = asset.mimeType ?? inferMimeTypeFromFilename(fileName);
+
+      // Best-effort local thumbnail; null on failure falls back to the server-side path.
+      const thumbnailUri = await generateThumbnail({ localUri: asset.uri, mimeType });
+
       enqueueUpload({
         localUri: asset.uri,
         fileName,
-        mimeType: asset.mimeType ?? inferMimeTypeFromFilename(fileName),
+        mimeType,
         sizeBytes: asset.fileSize ?? 0,
         source: 'gallery',
         agencyId,
         folderId,
+        thumbnailUri,
       });
 
       Alert.alert(

@@ -6,6 +6,7 @@ import {
   confirmUpload,
   requestPresignedUrl,
   uploadFileToS3,
+  uploadThumbnailToS3,
 } from './uploadService';
 
 /** Max number of attempts (initial + retries) before we give up. */
@@ -83,8 +84,13 @@ async function processItem(item: UploadQueueItem): Promise<void> {
 
   store.updateItem(id, { status: 'uploading', progress: 0, errorMessage: null });
 
+  // Whether we have a local thumb to upload. Drives hasThumbnail on create and
+  // the (never-omitted) thumbnailUploaded flag on complete.
+  const hasThumbnail = Boolean(item.thumbnailUri);
+
   try {
     // 1. Ask backend for a presigned URL + register the MediaFile + UploadJob.
+    //    hasThumbnail: true also yields a presigned PUT for the JPEG thumb.
     const presigned = await requestPresignedUrl({
       fileName: item.fileName,
       mimeType: item.mimeType,
@@ -92,6 +98,7 @@ async function processItem(item: UploadQueueItem): Promise<void> {
       source: item.source,
       ...(item.folderId ? { folderId: item.folderId } : {}),
       ...(item.agencyId ? { agencyId: item.agencyId } : {}),
+      ...(hasThumbnail ? { hasThumbnail: true } : {}),
     });
 
     getStore().updateItem(id, {
@@ -99,17 +106,36 @@ async function processItem(item: UploadQueueItem): Promise<void> {
       backendUploadId: presigned.uploadId,
     });
 
-    // 2. PUT the file to S3 with progress streaming back into the store.
+    // 2. Upload the thumbnail BEFORE the main file. A thumb failure must never
+    //    fail the parent upload — we log and continue, recording the outcome so
+    //    /complete can report it truthfully (never leaving a dangling thumb key).
+    let thumbnailUploaded: boolean | undefined;
+    if (hasThumbnail) {
+      thumbnailUploaded = false;
+      if (presigned.thumbnailUploadUrl && item.thumbnailUri) {
+        try {
+          await uploadThumbnailToS3(presigned.thumbnailUploadUrl, item.thumbnailUri);
+          thumbnailUploaded = true;
+        } catch (thumbError: unknown) {
+          console.warn('[uploadManager] thumbnail upload failed; continuing', { id, thumbError });
+        }
+      } else {
+        console.warn('[uploadManager] hasThumbnail set but no thumbnailUploadUrl issued', { id });
+      }
+    }
+
+    // 3. PUT the file to S3 with progress streaming back into the store.
     await uploadFileToS3(presigned.uploadUrl, item.localUri, item.mimeType, (pct) => {
       getStore().updateItem(id, { progress: pct });
     });
 
-    // 3. Tell the backend the upload finished so it can flip MediaFile.uploadStatus.
-    await confirmUpload(presigned.uploadId, presigned.fileId, presigned.s3Key);
+    // 4. Tell the backend the upload finished so it can flip MediaFile.uploadStatus.
+    //    thumbnailUploaded is sent explicitly whenever hasThumbnail was requested.
+    await confirmUpload(presigned.uploadId, thumbnailUploaded);
 
     getStore().updateItem(id, { status: 'uploaded', progress: 100, errorMessage: null });
 
-    // 4. Refresh the list that will surface the new MediaFile.
+    // 5. Refresh the list that will surface the new MediaFile.
     if (item.agencyId) {
       void queryClient.invalidateQueries({ queryKey: ['agency'] });
     } else {
@@ -117,7 +143,7 @@ async function processItem(item: UploadQueueItem): Promise<void> {
     }
     void queryClient.invalidateQueries({ queryKey: ['batchViewUrls'] });
 
-    // 5. Auto-clean successful items so Activity doesn't grow unbounded.
+    // 6. Auto-clean successful items so Activity doesn't grow unbounded.
     setTimeout(() => {
       getStore().removeItem(id);
     }, SUCCESS_CLEANUP_MS);

@@ -16,6 +16,8 @@ export type UploadQueueItem = {
   backendFileId: string | null;
   backendUploadId: string | null;
   createdAt: number;
+  /** Local URI of the pre-generated JPEG thumbnail, or null if none was made. */
+  thumbnailUri: string | null;
   /** Set when submitting into an agency workspace folder; null for personal captures. */
   agencyId: string | null;
   folderId: string | null;
@@ -29,4 +31,5 @@ export type EnqueueUploadInput = {
   source: UploadSource;
   agencyId?: string | null;
   folderId?: string | null;
+  thumbnailUri?: string | null;
 };

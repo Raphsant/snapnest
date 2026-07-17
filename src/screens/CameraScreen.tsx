@@ -1,6 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as Device from 'expo-device';
-import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
+import {
+  CameraView,
+  useCameraPermissions,
+  useMicrophonePermissions,
+  type FlashMode,
+} from 'expo-camera';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
 import { StatusBar } from 'expo-status-bar';
@@ -14,14 +19,22 @@ import {
 } from 'react-native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { useNavigation } from '@react-navigation/native';
+import {
+  PinchGestureHandler,
+  State,
+  type PinchGestureHandlerGestureEvent,
+  type PinchGestureHandlerStateChangeEvent,
+} from 'react-native-gesture-handler';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import type { MainTabParamList } from '../navigation/mainTabTypes';
 import { GlassCard } from '../components/GlassCard';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { CameraFlash } from '../components/CameraFlash';
+import { RuleOfThirdsGrid, TimerCountdown } from '../components/CameraOverlays';
 import { CaptureToast, type CaptureToastType } from '../components/CaptureToast';
 import { enqueueUpload } from '../services/uploadManager';
+import { generateThumbnail } from '../services/thumbnailService';
 import { useAuthStore } from '../store/authStore';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
@@ -33,6 +46,8 @@ type ToastState = { message: string; type: CaptureToastType } | null;
 const SHUTTER_SIZE = 80;
 const INNER_RING_WIDTH = 3;
 const isSimulator = !Device.isDevice;
+/** Maps pinch delta (scale-1) onto the camera's normalized 0–1 zoom. Tune on device. */
+const ZOOM_SENSITIVITY = 0.5;
 
 /**
  * Fire-and-forget — queues the captured file for background upload.
@@ -49,12 +64,16 @@ async function queueCaptureUpload(uri: string, kind: 'photo' | 'video'): Promise
     const mimeType = kind === 'photo' ? 'image/jpeg' : 'video/mp4';
     const fileName = `snapnest-${Date.now()}.${ext}`;
 
+    // Best-effort local thumbnail; null on failure falls back to the server-side path.
+    const thumbnailUri = await generateThumbnail({ localUri: uri, mimeType });
+
     enqueueUpload({
       localUri: uri,
       fileName,
       mimeType,
       sizeBytes,
       source: 'camera',
+      thumbnailUri,
     });
   } catch (error) {
     console.error('[CameraScreen] failed to enqueue upload', error);
@@ -68,6 +87,7 @@ export function CameraScreen() {
   const displayName = firstName?.trim() ? firstName.trim() : 'there';
   const cameraRef = useRef<CameraView | null>(null);
   const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [microphonePermission, requestMicrophonePermission] = useMicrophonePermissions();
@@ -81,6 +101,16 @@ export function CameraScreen() {
   const [toast, setToast] = useState<ToastState>(null);
   const [isCapturingPhoto, setIsCapturingPhoto] = useState(false);
   const [isModeTransitioning, setIsModeTransitioning] = useState(false);
+
+  // Capability controls — component state only (no store backs this screen).
+  const [photoFlash, setPhotoFlash] = useState<FlashMode>('off');
+  const [torchOn, setTorchOn] = useState(false);
+  const [mirror, setMirror] = useState(true);
+  const [gridOn, setGridOn] = useState(false);
+  const [timerDuration, setTimerDuration] = useState<0 | 3 | 10>(0);
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const [zoom, setZoom] = useState(0);
+  const baseZoomRef = useRef(0);
 
   const shutterScale = useRef(new Animated.Value(1)).current;
   const recordMorph = useRef(new Animated.Value(0)).current;
@@ -106,8 +136,44 @@ export function CameraScreen() {
     if (isRecording) {
       return;
     }
+    // Front/back have different zoom ranges — reset so the flip isn't jarring.
+    setZoom(0);
+    baseZoomRef.current = 0;
     setFacing((prev) => (prev === 'back' ? 'front' : 'back'));
   }, [isRecording]);
+
+  const onPinchGesture = useCallback((event: PinchGestureHandlerGestureEvent): void => {
+    const next = baseZoomRef.current + (event.nativeEvent.scale - 1) * ZOOM_SENSITIVITY;
+    setZoom(Math.min(1, Math.max(0, next)));
+  }, []);
+
+  const onPinchStateChange = useCallback((event: PinchGestureHandlerStateChangeEvent): void => {
+    // Capture the zoom level at gesture start so deltas accumulate from there.
+    if (event.nativeEvent.state === State.BEGAN) {
+      baseZoomRef.current = zoom;
+    }
+  }, [zoom]);
+
+  /** One control: cycles photo flash (off→auto→on) or toggles the video torch. */
+  const cycleFlashOrTorch = useCallback((): void => {
+    if (mode === 'photo') {
+      setPhotoFlash((prev) => (prev === 'off' ? 'auto' : prev === 'auto' ? 'on' : 'off'));
+      return;
+    }
+    setTorchOn((prev) => !prev);
+  }, [mode]);
+
+  const cycleTimer = useCallback((): void => {
+    setTimerDuration((prev) => (prev === 0 ? 3 : prev === 3 ? 10 : 0));
+  }, []);
+
+  const toggleGrid = useCallback((): void => {
+    setGridOn((prev) => !prev);
+  }, []);
+
+  const toggleMirror = useCallback((): void => {
+    setMirror((prev) => !prev);
+  }, []);
 
   const goToSettingsTab = useCallback((): void => {
     navigation.navigate('Settings');
@@ -128,13 +194,24 @@ export function CameraScreen() {
   /** Reserve space above the floating tab bar (≈104px bar+fab) + 100px breathing room */
   const bottomChromePadding = insets.bottom + 116;
   const toastTopOffset = insets.top + spacing.lg;
-  const recordingPillTop = insets.top + 16;
+  const controlColumnTop = insets.top + 96;
 
   const recordingTimeLabel = useMemo(() => {
     const minutes = Math.floor(recordingDuration / 60);
     const seconds = recordingDuration % 60;
     return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
   }, [recordingDuration]);
+
+  // Flash control reflects both mode (flash vs torch) and current state.
+  const flashIconName = useMemo<React.ComponentProps<typeof Ionicons>['name']>(() => {
+    if (mode === 'video') {
+      return torchOn ? 'flashlight' : 'flashlight-outline';
+    }
+    return photoFlash === 'on' ? 'flash' : photoFlash === 'auto' ? 'flash-outline' : 'flash-off-outline';
+  }, [mode, photoFlash, torchOn]);
+
+  const flashActive = mode === 'video' ? torchOn : photoFlash !== 'off';
+  const flashAutoBadge = mode === 'photo' && photoFlash === 'auto';
 
   const showToast = useCallback((message: string, type: CaptureToastType): void => {
     if (toastTimeoutRef.current) {
@@ -195,6 +272,9 @@ export function CameraScreen() {
     return () => {
       if (toastTimeoutRef.current) {
         clearTimeout(toastTimeoutRef.current);
+      }
+      if (countdownIntervalRef.current) {
+        clearInterval(countdownIntervalRef.current);
       }
     };
   }, []);
@@ -315,23 +395,80 @@ export function CameraScreen() {
     }
   }, [animateRecordShape, isRecording, showToast]);
 
+  /** Runs the actual capture for the current mode (photo shot / video start). */
+  const fireCapture = useCallback((): void => {
+    if (mode === 'photo') {
+      void handlePhotoCapture();
+      return;
+    }
+    void startVideoRecording();
+  }, [handlePhotoCapture, mode, startVideoRecording]);
+
+  const clearCountdown = useCallback((): void => {
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
+    setCountdown(null);
+  }, []);
+
+  const startCountdown = useCallback((): void => {
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+    }
+    // `remaining` lives in the closure so the tick never reads stale state and
+    // capture fires exactly once (no setState-updater side effects).
+    let remaining: number = timerDuration;
+    setCountdown(remaining);
+    countdownIntervalRef.current = setInterval(() => {
+      remaining -= 1;
+      if (remaining <= 0) {
+        if (countdownIntervalRef.current) {
+          clearInterval(countdownIntervalRef.current);
+          countdownIntervalRef.current = null;
+        }
+        setCountdown(null);
+        fireCapture();
+        return;
+      }
+      setCountdown(remaining);
+    }, 1000);
+  }, [fireCapture, timerDuration]);
+
   const handleCapturePress = useCallback((): void => {
     if (!showControls) {
       return;
     }
 
-    if (mode === 'photo') {
-      void handlePhotoCapture();
+    // A tap while counting down cancels the timer.
+    if (countdown !== null) {
+      clearCountdown();
       return;
     }
 
-    if (isRecording) {
+    // Stopping a recording is never delayed by the timer.
+    if (mode === 'video' && isRecording) {
       stopVideoRecording();
       return;
     }
 
-    void startVideoRecording();
-  }, [handlePhotoCapture, isRecording, mode, showControls, startVideoRecording, stopVideoRecording]);
+    if (timerDuration > 0) {
+      startCountdown();
+      return;
+    }
+
+    fireCapture();
+  }, [
+    clearCountdown,
+    countdown,
+    fireCapture,
+    isRecording,
+    mode,
+    showControls,
+    startCountdown,
+    stopVideoRecording,
+    timerDuration,
+  ]);
 
   const switchModeWithFade = useCallback(
     (nextMode: CaptureMode): void => {
@@ -427,9 +564,22 @@ export function CameraScreen() {
     }
 
     return (
-      <Animated.View style={[styles.viewfinder, { opacity: viewfinderOpacity }]}>
-        <CameraView ref={cameraRef} style={styles.camera} facing={facing} mode={cameraMode} videoQuality="720p" />
-      </Animated.View>
+      <PinchGestureHandler onGestureEvent={onPinchGesture} onHandlerStateChange={onPinchStateChange}>
+        <Animated.View style={[styles.viewfinder, { opacity: viewfinderOpacity }]}>
+          <CameraView
+            ref={cameraRef}
+            style={styles.camera}
+            facing={facing}
+            mode={cameraMode}
+            videoQuality="1080p"
+            videoStabilizationMode="auto"
+            flash={mode === 'photo' ? photoFlash : 'off'}
+            enableTorch={mode === 'video' && torchOn}
+            mirror={mirror}
+            zoom={zoom}
+          />
+        </Animated.View>
+      </PinchGestureHandler>
     );
   };
 
@@ -458,12 +608,7 @@ export function CameraScreen() {
         topOffset={toastTopOffset}
       />
 
-      {isRecording ? (
-        <View pointerEvents="none" style={[styles.recordingPill, { top: recordingPillTop }]}>
-          <Animated.View style={[styles.recordingDot, { opacity: blinkOpacity }]} />
-          <Text style={styles.recordingText}>{recordingTimeLabel}</Text>
-        </View>
-      ) : null}
+      {gridOn && showControls ? <RuleOfThirdsGrid /> : null}
 
       <SafeAreaView style={styles.overlay} edges={['top']} pointerEvents="box-none">
         <View style={styles.topRow}>
@@ -497,11 +642,90 @@ export function CameraScreen() {
       </SafeAreaView>
 
       {showControls ? (
+        <View style={[styles.controlColumn, { top: controlColumnTop }]} pointerEvents="box-none">
+          <Pressable
+            onPress={cycleFlashOrTorch}
+            style={({ pressed }) => [
+              styles.controlButton,
+              flashActive && styles.controlButtonActive,
+              pressed && styles.iconPressed,
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel={mode === 'video' ? 'Toggle torch' : 'Cycle flash mode'}
+          >
+            <Ionicons
+              name={flashIconName}
+              size={22}
+              color={flashActive ? colors.accentBlue : colors.card}
+            />
+            {flashAutoBadge ? <Text style={styles.controlBadge}>A</Text> : null}
+          </Pressable>
+
+          <Pressable
+            onPress={cycleTimer}
+            style={({ pressed }) => [
+              styles.controlButton,
+              timerDuration > 0 && styles.controlButtonActive,
+              pressed && styles.iconPressed,
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="Cycle self-timer"
+          >
+            <Ionicons
+              name="timer-outline"
+              size={22}
+              color={timerDuration > 0 ? colors.accentBlue : colors.card}
+            />
+            {timerDuration > 0 ? <Text style={styles.controlBadge}>{timerDuration}</Text> : null}
+          </Pressable>
+
+          <Pressable
+            onPress={toggleGrid}
+            style={({ pressed }) => [
+              styles.controlButton,
+              gridOn && styles.controlButtonActive,
+              pressed && styles.iconPressed,
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="Toggle grid"
+          >
+            <Ionicons name="grid-outline" size={22} color={gridOn ? colors.accentBlue : colors.card} />
+          </Pressable>
+
+          {facing === 'front' ? (
+            <Pressable
+              onPress={toggleMirror}
+              style={({ pressed }) => [
+                styles.controlButton,
+                mirror && styles.controlButtonActive,
+                pressed && styles.iconPressed,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Toggle front-camera mirror"
+            >
+              <Ionicons
+                name="swap-horizontal"
+                size={22}
+                color={mirror ? colors.accentBlue : colors.card}
+              />
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
+
+      {showControls ? (
         <View style={[styles.bottomControls, { paddingBottom: bottomChromePadding }]} pointerEvents="box-none">
           {showMediaWarning ? (
             <Pressable onPress={openSettings} style={styles.mediaWarningPill} accessibilityRole="button">
               <Text style={styles.mediaWarningText}>Captures won&apos;t be saved to your camera roll. Tap to fix.</Text>
             </Pressable>
+          ) : null}
+
+          {isRecording ? (
+            <View style={styles.recordingHud} pointerEvents="none">
+              <Animated.View style={[styles.recordingDot, { opacity: blinkOpacity }]} />
+              <Text style={styles.recordingText}>{recordingTimeLabel}</Text>
+            </View>
           ) : null}
 
           <Pressable
@@ -557,6 +781,7 @@ export function CameraScreen() {
           </View>
         </View>
       ) : null}
+      {countdown !== null ? <TimerCountdown seconds={countdown} /> : null}
       <CameraFlash visible={showFlash} onComplete={() => setShowFlash(false)} />
     </View>
   );
@@ -653,17 +878,42 @@ const styles = StyleSheet.create({
   iconDisabled: {
     opacity: 0.4,
   },
-  recordingPill: {
+  controlColumn: {
     position: 'absolute',
-    alignSelf: 'center',
-    zIndex: 25,
+    right: spacing.lg,
+    alignItems: 'center',
+    gap: spacing.md,
+    zIndex: 20,
+  },
+  controlButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  controlButtonActive: {
+    backgroundColor: 'rgba(255,255,255,0.92)',
+  },
+  controlBadge: {
+    position: 'absolute',
+    bottom: 3,
+    right: 6,
+    fontSize: 10,
+    fontWeight: '800',
+    color: colors.accentBlue,
+    fontVariant: ['tabular-nums'],
+  },
+  recordingHud: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: 20,
+    paddingVertical: 6,
+    borderRadius: 16,
     backgroundColor: 'rgba(0,0,0,0.45)',
+    marginBottom: spacing.md,
   },
   recordingDot: {
     width: 8,

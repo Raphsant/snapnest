@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useMemo } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import {
   ActivityIndicator,
@@ -72,6 +72,7 @@ const GridCell = memo(function GridCell({
         size={size}
         marginRight={marginRight}
         thumbnailUri={viewUrlByFileId?.[entry.item.id]?.thumbnailUrl ?? null}
+        fullUri={viewUrlByFileId?.[entry.item.id]?.fullUrl ?? null}
         onPress={onPressFile}
         selection={selection}
       />
@@ -86,6 +87,7 @@ type FileGridCellProps = {
   size: number;
   marginRight: number;
   thumbnailUri: string | null;
+  fullUri: string | null;
   onPress?: (file: MediaFile) => void;
   selection: GridSelectionState;
 };
@@ -95,11 +97,30 @@ const FileGridCell = memo(function FileGridCell({
   size,
   marginRight,
   thumbnailUri,
+  fullUri,
   onPress,
   selection,
 }: FileGridCellProps): React.ReactElement {
   const isVideo = isVideoMime(file.mimeType);
-  const showImage = thumbnailUri !== null;
+
+  // Prefer the thumbnail, fall back to full-res on error (a stale thumb key can
+  // 404). Advance through the chain on each onError; exhausting it shows the
+  // placeholder icon rather than a broken tile.
+  const sources = useMemo(
+    (): string[] => [thumbnailUri, fullUri].filter((uri): uri is string => uri !== null),
+    [thumbnailUri, fullUri],
+  );
+  const [sourceIndex, setSourceIndex] = useState(0);
+  useEffect(() => {
+    setSourceIndex(0);
+  }, [sources]);
+
+  const currentUri = sources[sourceIndex] ?? null;
+  const showImage = currentUri !== null;
+  const handleImageError = useCallback(() => {
+    setSourceIndex((index) => index + 1);
+  }, []);
+
   const isSelecting = selection.isActive;
   const isSelected = isSelecting && selection.selectedIds.has(file.id);
 
@@ -131,7 +152,12 @@ const FileGridCell = memo(function FileGridCell({
       ]}
     >
       {showImage ? (
-        <Image source={{ uri: thumbnailUri }} style={styles.image} resizeMode="cover" />
+        <Image
+          source={{ uri: currentUri }}
+          style={styles.image}
+          resizeMode="cover"
+          onError={handleImageError}
+        />
       ) : (
         <View style={styles.placeholder}>
           <Ionicons

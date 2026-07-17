@@ -51,6 +51,7 @@ export const useUploadQueueStore = create<UploadQueueState & UploadQueueActions>
           createdAt: Date.now(),
           agencyId: input.agencyId ?? null,
           folderId: input.folderId ?? null,
+          thumbnailUri: input.thumbnailUri ?? null,
         };
         set((state) => ({ items: [...state.items, newItem] }));
         return id;
@@ -104,7 +105,20 @@ export const useUploadQueueStore = create<UploadQueueState & UploadQueueActions>
       name: STORAGE_KEY,
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({ items: state.items }),
-      version: 1,
+      version: 2,
+      // v1 items predate thumbnailUri; backfill null so the field is never undefined.
+      migrate: (persisted, version): UploadQueueState => {
+        const state = (persisted as UploadQueueState | undefined) ?? { items: [] };
+        if (version < 2) {
+          return {
+            items: state.items.map((item) => ({
+              ...item,
+              thumbnailUri: item.thumbnailUri ?? null,
+            })),
+          };
+        }
+        return state;
+      },
     },
   ),
 );

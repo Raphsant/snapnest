@@ -80,7 +80,15 @@ if (__DEV__) {
       return response;
     },
     (error: unknown) => {
-      console.error('[API][Response Error]', error);
+      if (axios.isAxiosError(error)) {
+        console.error('[API][Response Error]', {
+          status: error.response?.status,
+          url: error.config?.url,
+          data: error.response?.data,
+        });
+      } else {
+        console.error('[API][Response Error]', error);
+      }
       return Promise.reject(error);
     },
   );
