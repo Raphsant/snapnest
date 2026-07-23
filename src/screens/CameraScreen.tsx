@@ -52,6 +52,12 @@ const ZOOM_SENSITIVITY = 0.5;
  * Fire-and-forget — queues the captured file for background upload.
  * Never awaited by the capture flow so the UI stays instant.
  *
+ * Deliberately the FIRST thing a capture does. Everything in here is either
+ * local and instant (a file stat) or handed off unawaited (the thumbnail), so
+ * the presign — and with it the S3 PUT on its native background session — is
+ * under way within about a second of the shutter. Lock the phone right after
+ * capturing and the transfer is already the OS's problem, not the JS thread's.
+ *
  * Resolves true only once the item is actually on the queue; the notification
  * pre-prompt hangs off that, so a vanished file or a thrown enqueue must not
  * count as a capture worth prompting about.
@@ -71,19 +77,26 @@ async function queueCaptureUpload(
     const mimeType = kind === 'photo' ? 'image/jpeg' : 'video/mp4';
     const fileName = `snapnest-${Date.now()}.${ext}`;
 
-    // Best-effort local thumbnail; null on failure falls back to the server-side path.
-    const thumbnailUri = await generateThumbnail({ localUri: uri, mimeType });
+    // Started, NOT awaited: generation costs 1s+ for video and nothing about the
+    // presign or the main PUT depends on it. uploadManager picks this promise up
+    // only after the file transfer is already moving, and writes the result into
+    // the queue item. Best-effort — null falls back to the server-side path.
+    const thumbnailPromise = generateThumbnail({ localUri: uri, mimeType });
 
     // folderId null = system "Unfiled"; processItem omits it from POST /uploads.
-    enqueueUpload({
-      localUri: uri,
-      fileName,
-      mimeType,
-      sizeBytes,
-      source: 'camera',
-      thumbnailUri,
-      folderId,
-    });
+    enqueueUpload(
+      {
+        localUri: uri,
+        fileName,
+        mimeType,
+        sizeBytes,
+        source: 'camera',
+        // Filled in by the promise above once generation finishes.
+        thumbnailUri: null,
+        folderId,
+      },
+      { thumbnailPromise },
+    );
     return true;
   } catch (error) {
     console.error('[CameraScreen] failed to enqueue upload', error);
@@ -432,10 +445,13 @@ export function CameraScreen() {
       }
 
       setShowFlash(true);
-      const saved = await saveCapture(photo.uri);
-      if (saved) {
-        queueAndMaybePrompt(photo.uri, 'photo');
-      }
+      // Upload first, and unconditionally. The camera-roll save is a separate
+      // best-effort concern that must never gate the upload (denying photo
+      // library access used to silently kill uploads outright) and must never
+      // delay it either — saveCapture can sit on a permission dialog for as
+      // long as the user ignores it.
+      queueAndMaybePrompt(photo.uri, 'photo');
+      void saveCapture(photo.uri);
     } catch (error) {
       console.error('Photo capture failed', error);
       showToast("Couldn't save", 'error');
@@ -459,10 +475,9 @@ export function CameraScreen() {
         showToast("Couldn't save", 'error');
         return;
       }
-      const saved = await saveCapture(video.uri);
-      if (saved) {
-        queueAndMaybePrompt(video.uri, 'video');
-      }
+      // Upload first and unconditionally — same reasoning as the photo path.
+      queueAndMaybePrompt(video.uri, 'video');
+      void saveCapture(video.uri);
     } catch (error) {
       console.error('Video recording failed', error);
       showToast("Couldn't save", 'error');

@@ -1,3 +1,5 @@
+import * as FileSystem from 'expo-file-system/legacy';
+
 import { apiClient } from './api';
 
 export type UploadSource = 'camera' | 'gallery';
@@ -48,43 +50,92 @@ export async function requestPresignedUrl(file: UploadFileInput): Promise<Presig
   return response.data;
 }
 
+/** Shared options for every presigned PUT. BACKGROUND is what survives a lock. */
+function putOptions(contentType: string): FileSystem.FileSystemUploadOptions {
+  return {
+    httpMethod: 'PUT',
+    uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+    // Explicit even though it is the library default — this single line is the
+    // difference between a transfer that survives screen-lock and one that dies.
+    sessionType: FileSystem.FileSystemSessionType.BACKGROUND,
+    headers: { 'Content-Type': contentType },
+  };
+}
+
+/**
+ * Normalize an upload task's outcome into the one failure channel callers expect.
+ *
+ * Two ways this differs from `xhr.onload`, both of which would otherwise be
+ * read as success:
+ *  - a non-2xx response RESOLVES, carrying the status in the result. Nothing
+ *    else checks it, so an S3 403 would sail through to /complete and mark a
+ *    MediaFile uploaded with no object behind it.
+ *  - a cancelled task resolves `null`/`undefined` with no status at all.
+ *
+ * Thrown messages match the strings the XHR implementation produced, so
+ * uploadManager's friendlyError() keeps classifying them the same way.
+ */
+function assertUploadSucceeded(
+  result: FileSystem.FileSystemUploadResult | undefined | null,
+  label: 'file' | 'thumbnail',
+): void {
+  if (!result) {
+    throw new Error(`Failed uploading ${label} to storage.`);
+  }
+  if (result.status < 200 || result.status >= 300) {
+    const prefix = label === 'thumbnail' ? 'Thumbnail upload' : 'Upload';
+    throw new Error(`${prefix} failed with status ${result.status}`);
+  }
+}
+
+/**
+ * PUT a local file to its presigned S3 URL on a native background session.
+ *
+ * Why not fetch()+XHR (what this replaced): an RN network request lives on the
+ * JS thread, so iOS suspending the app killed the transfer — capture, lock the
+ * screen, and nothing uploaded until the app was reopened. `createUploadTask`
+ * hands the PUT to a native NSURLSession with a background configuration,
+ * which keeps running while the app is suspended. Streaming from disk also
+ * removes the old fetch()->blob() step, which materialized the entire file in
+ * JS memory (~100MB+ for a 60s 1080p video) before sending a single byte.
+ *
+ * TIMING — a resolution arriving long after this was called is NORMAL, not a
+ * hang: while the device is locked the native task runs but JS is frozen, so
+ * the result is delivered on the next foreground. Never wrap this in a timeout
+ * or race it against one; doing so would abandon a transfer that is succeeding.
+ *
+ * ERRORS map onto the existing status machine — a throw here lands in
+ * processItem's catch, which marks the item failed and schedules the normal
+ * backoff retry. No new states.
+ *
+ * One behavior change worth knowing: an iOS background session does not fail
+ * when the connection drops mid-transfer, it retries natively until it
+ * succeeds. Connectivity lost after the PUT starts therefore keeps the item in
+ * 'uploading' rather than bouncing it to 'failed' — the transfer resumes on its
+ * own, without a re-presign (and so without a duplicate S3 object).
+ */
 export async function uploadFileToS3(
   presignedUrl: string,
   fileUri: string,
   mimeType: string,
   onProgress?: (pct: number) => void,
 ): Promise<void> {
-  const fileResponse = await fetch(fileUri);
-  const fileBlob = await fileResponse.blob();
-
-  await new Promise<void>((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open('PUT', presignedUrl);
-    xhr.setRequestHeader('Content-Type', mimeType);
-
-    xhr.upload.onprogress = (event: ProgressEvent<EventTarget>) => {
-      if (!event.lengthComputable) {
+  const task = FileSystem.createUploadTask(
+    presignedUrl,
+    fileUri,
+    putOptions(mimeType),
+    ({ totalBytesSent, totalBytesExpectedToSend }) => {
+      // -1/0 means the total isn't known yet; skip rather than divide by it.
+      if (totalBytesExpectedToSend <= 0) {
         return;
       }
-      const percentage = Math.round((event.loaded / event.total) * 100);
-      onProgress?.(percentage);
-    };
+      onProgress?.(Math.round((totalBytesSent / totalBytesExpectedToSend) * 100));
+    },
+  );
 
-    xhr.onerror = () => {
-      reject(new Error('Failed uploading file to storage.'));
-    };
-
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        onProgress?.(100);
-        resolve();
-        return;
-      }
-      reject(new Error(`Upload failed with status ${xhr.status}`));
-    };
-
-    xhr.send(fileBlob);
-  });
+  const result = await task.uploadAsync();
+  assertUploadSucceeded(result, 'file');
+  onProgress?.(100);
 }
 
 /**
@@ -93,30 +144,15 @@ export async function uploadFileToS3(
  * The presign is bound to `Content-Type: image/jpeg` exactly — any other value
  * (or an omitted header) is rejected by S3 with a 403. Resolves on 2xx, rejects
  * otherwise; callers decide whether a rejection should fail the parent upload.
+ *
+ * Same background session as the main file: a thumb PUT that is in flight when
+ * the screen locks finishes natively instead of being dropped.
  */
 export async function uploadThumbnailToS3(presignedUrl: string, thumbnailUri: string): Promise<void> {
-  const fileResponse = await fetch(thumbnailUri);
-  const fileBlob = await fileResponse.blob();
+  const task = FileSystem.createUploadTask(presignedUrl, thumbnailUri, putOptions('image/jpeg'));
 
-  await new Promise<void>((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open('PUT', presignedUrl);
-    xhr.setRequestHeader('Content-Type', 'image/jpeg');
-
-    xhr.onerror = () => {
-      reject(new Error('Failed uploading thumbnail to storage.'));
-    };
-
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        resolve();
-        return;
-      }
-      reject(new Error(`Thumbnail upload failed with status ${xhr.status}`));
-    };
-
-    xhr.send(fileBlob);
-  });
+  const result = await task.uploadAsync();
+  assertUploadSucceeded(result, 'thumbnail');
 }
 
 export async function confirmUpload(
