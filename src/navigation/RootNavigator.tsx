@@ -13,6 +13,7 @@ import { CameraScreen } from '../screens/CameraScreen';
 import { FoldersStack } from './FoldersStack';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { useMe } from '../hooks/useMe';
+import { registerIfGranted } from '../services/notificationService';
 import { processQueue } from '../services/uploadManager';
 import { selectIsAuthenticated, useAuthStore } from '../store/authStore';
 import { useUploadQueueStore } from '../store/uploadQueueStore';
@@ -154,6 +155,20 @@ function RootNavigationTree() {
     resetStuckUploads();
     void processQueue();
   }, [isAuthenticated, isHydrated, resetStuckUploads]);
+
+  /**
+   * Re-register the push token whenever a session goes active — fresh login and
+   * warm relaunch both land here, which is why this doesn't live in
+   * LoginScreen. Covers token rotation and account switches (the backend
+   * upserts and reassigns). Silent by design: it no-ops unless permission was
+   * already granted, so it can never surface a system dialog on launch.
+   */
+  useEffect(() => {
+    if (!isHydrated || !isAuthenticated) {
+      return;
+    }
+    void registerIfGranted();
+  }, [isAuthenticated, isHydrated]);
 
   if (!isHydrated) {
     return <SplashScreen />;

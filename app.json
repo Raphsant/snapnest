@@ -31,7 +31,8 @@
           "savePhotosPermission": "Allow SnapNest to save videos to your library."
         }
       ],
-      "expo-video"
+      "expo-video",
+      "expo-notifications"
     ],
     "android": {
       "permissions": [

@@ -29,6 +29,7 @@ import { CameraFlash } from '../components/CameraFlash';
 import { RuleOfThirdsGrid, TimerCountdown } from '../components/CameraOverlays';
 import { CaptureToast, type CaptureToastType } from '../components/CaptureToast';
 import { DestinationPickerSheet } from '../components/DestinationPickerSheet';
+import { PushPromptBanner, useUploadNotificationPrompt } from '../components/PushPromptBanner';
 import { useFolders } from '../hooks/useFolders';
 import { enqueueUpload } from '../services/uploadManager';
 import { generateThumbnail } from '../services/thumbnailService';
@@ -50,16 +51,20 @@ const ZOOM_SENSITIVITY = 0.5;
 /**
  * Fire-and-forget — queues the captured file for background upload.
  * Never awaited by the capture flow so the UI stays instant.
+ *
+ * Resolves true only once the item is actually on the queue; the notification
+ * pre-prompt hangs off that, so a vanished file or a thrown enqueue must not
+ * count as a capture worth prompting about.
  */
 async function queueCaptureUpload(
   uri: string,
   kind: 'photo' | 'video',
   folderId: string | null,
-): Promise<void> {
+): Promise<boolean> {
   try {
     const info = await FileSystem.getInfoAsync(uri);
     if (!info.exists) {
-      return;
+      return false;
     }
     const sizeBytes = typeof info.size === 'number' ? info.size : 0;
     const ext = kind === 'photo' ? 'jpg' : 'mp4';
@@ -79,8 +84,10 @@ async function queueCaptureUpload(
       thumbnailUri,
       folderId,
     });
+    return true;
   } catch (error) {
     console.error('[CameraScreen] failed to enqueue upload', error);
+    return false;
   }
 }
 
@@ -124,6 +131,13 @@ export function CameraScreen() {
   const setDestinationFolder = useCameraStore((s) => s.setDestinationFolder);
   const foldersQuery = useFolders();
   const [destPickerVisible, setDestPickerVisible] = useState(false);
+
+  // One-time notification pre-prompt. Owns its own "already asked" bookkeeping
+  // and permission check — this screen only tells it a capture was queued.
+  const pushPrompt = useUploadNotificationPrompt();
+  // Pulled out separately: the hook returns a fresh object each render, so
+  // depending on `pushPrompt` would re-create every capture callback downstream.
+  const { notifyCaptureQueued } = pushPrompt;
 
   // If the selected folder is deleted (or otherwise vanishes from the list),
   // fall back to the Unfiled default so the chip and the upload target agree.
@@ -225,6 +239,8 @@ export function CameraScreen() {
 
   /** Reserve space above the floating tab bar (≈104px bar+fab) + 100px breathing room */
   const bottomChromePadding = insets.bottom + 116;
+  /** Clears the mode pills (~36) + shutter (80 + 16 margin) so the prompt never covers them */
+  const promptBottomOffset = bottomChromePadding + 148;
   const toastTopOffset = insets.top + spacing.lg;
   const controlColumnTop = insets.top + 96;
 
@@ -360,6 +376,27 @@ export function CameraScreen() {
     [mediaPermission?.granted, requestMediaPermission, showToast]
   );
 
+  /**
+   * Queues the capture and, on a real enqueue, lets the pre-prompt decide
+   * whether this is the moment to ask about notifications.
+   *
+   * The destination is read live rather than closed over: a self-timer
+   * countdown can fire long after capture was requested, and the closure value
+   * would be stale.
+   */
+  const queueAndMaybePrompt = useCallback(
+    (uri: string, kind: CaptureMode): void => {
+      void queueCaptureUpload(uri, kind, useCameraStore.getState().destinationFolderId).then(
+        (queued: boolean) => {
+          if (queued) {
+            notifyCaptureQueued();
+          }
+        },
+      );
+    },
+    [notifyCaptureQueued],
+  );
+
   const handlePhotoCapture = useCallback(async (): Promise<void> => {
     if (isCapturingPhoto) {
       return;
@@ -383,9 +420,7 @@ export function CameraScreen() {
       setShowFlash(true);
       const saved = await saveCapture(photo.uri);
       if (saved) {
-        // Read the destination live: a self-timer countdown can fire long after
-        // capture was requested, and the closure value would be stale.
-        void queueCaptureUpload(photo.uri, 'photo', useCameraStore.getState().destinationFolderId);
+        queueAndMaybePrompt(photo.uri, 'photo');
       }
     } catch (error) {
       console.error('Photo capture failed', error);
@@ -393,7 +428,7 @@ export function CameraScreen() {
     } finally {
       setIsCapturingPhoto(false);
     }
-  }, [isCapturingPhoto, runPhotoTapPulse, saveCapture, showToast]);
+  }, [isCapturingPhoto, queueAndMaybePrompt, runPhotoTapPulse, saveCapture, showToast]);
 
   const startVideoRecording = useCallback(async (): Promise<void> => {
     if (!cameraRef.current || isRecording) {
@@ -412,8 +447,7 @@ export function CameraScreen() {
       }
       const saved = await saveCapture(video.uri);
       if (saved) {
-        // Read the destination live (see photo capture) to avoid a stale closure.
-        void queueCaptureUpload(video.uri, 'video', useCameraStore.getState().destinationFolderId);
+        queueAndMaybePrompt(video.uri, 'video');
       }
     } catch (error) {
       console.error('Video recording failed', error);
@@ -422,7 +456,7 @@ export function CameraScreen() {
       setIsRecording(false);
       animateRecordShape(0);
     }
-  }, [animateRecordShape, isRecording, saveCapture, showToast]);
+  }, [animateRecordShape, isRecording, queueAndMaybePrompt, saveCapture, showToast]);
 
   const stopVideoRecording = useCallback((): void => {
     if (!cameraRef.current || !isRecording) {
@@ -849,6 +883,13 @@ export function CameraScreen() {
         </View>
       ) : null}
       {countdown !== null ? <TimerCountdown seconds={countdown} /> : null}
+      <PushPromptBanner
+        visible={pushPrompt.visible}
+        onEnable={pushPrompt.onEnable}
+        onDismiss={pushPrompt.onDismiss}
+        bottomOffset={promptBottomOffset}
+      />
+
       <DestinationPickerSheet
         visible={destPickerVisible}
         selectedFolderId={destinationFolderId}
