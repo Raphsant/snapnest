@@ -18,7 +18,7 @@ import {
   View,
 } from 'react-native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
-import { useNavigation } from '@react-navigation/native';
+import { useIsFocused, useNavigation } from '@react-navigation/native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -181,10 +181,24 @@ export function CameraScreen() {
     setFacing((prev) => (prev === 'back' ? 'front' : 'back'));
   }, [isRecording]);
 
-  // Modern Gesture API (not the classic PinchGestureHandler): GestureDetector
-  // re-attaches its recognizer via a ref callback, so pinch survives the tab
-  // blur/refocus that recycles the camera's Fabric view. .runOnJS keeps the
-  // callbacks on the JS thread (no reanimated dependency needed).
+  // Remount counter for the zoom catcher — see renderPreviewLayer for why it
+  // exists. Bumped on the rising edge of focus only: remounting while blurred
+  // would re-attach against a view that isn't in the hierarchy yet, and the
+  // native side gives up silently after 25 retries.
+  const isFocused = useIsFocused();
+  const wasFocusedRef = useRef(isFocused);
+  const [gestureEpoch, setGestureEpoch] = useState(0);
+  useEffect(() => {
+    if (isFocused && !wasFocusedRef.current) {
+      setGestureEpoch((prev) => prev + 1);
+    }
+    wasFocusedRef.current = isFocused;
+  }, [isFocused]);
+
+  // Modern Gesture API (not the classic PinchGestureHandler). The recognizer is
+  // attached to the zoom catcher in renderPreviewLayer, not to the viewfinder —
+  // see the comment there. .runOnJS keeps the callbacks on the JS thread (no
+  // reanimated dependency needed).
   const pinchGesture = useMemo(
     () =>
       Gesture.Pinch()
@@ -642,7 +656,7 @@ export function CameraScreen() {
     }
 
     return (
-      <GestureDetector gesture={pinchGesture}>
+      <>
         <Animated.View collapsable={false} style={[styles.viewfinder, { opacity: viewfinderOpacity }]}>
           <CameraView
             ref={cameraRef}
@@ -657,7 +671,30 @@ export function CameraScreen() {
             zoom={zoom}
           />
         </Animated.View>
-      </GestureDetector>
+        {/*
+          The pinch target is deliberately OUTSIDE the camera subtree, and
+          deliberately keyed. Do not fold it back into the viewfinder.
+
+          GestureDetector attaches its native recognizer once, in a mount-only
+          useLayoutEffect, and its only re-attach trigger is a changed view tag.
+          A screen that stays mounted across a tab blur (the tab navigator sets
+          detachInactiveScreens={false}) never changes its tag, so once the blur
+          severs the native binding the recognizer is dead for good. Remounting
+          is the only way to force a fresh attach — and remounting an empty view
+          keeps CameraView alive, so the AVCaptureSession isn't cycled (and the
+          preview doesn't black-flash) on every tab return.
+
+          Second generation of this fix: the first (1e4b97f) swapped
+          PinchGestureHandler for GestureDetector on the assumption that its ref
+          callback would re-attach. It can't — the tag never changes.
+
+          Render position matters: this must stay above the viewfinder and below
+          every control, so it can't swallow their touches.
+        */}
+        <GestureDetector key={gestureEpoch} gesture={pinchGesture}>
+          <View collapsable={false} style={styles.zoomCatcher} />
+        </GestureDetector>
+      </>
     );
   };
 
@@ -920,6 +957,13 @@ const styles = StyleSheet.create({
   },
   camera: {
     ...StyleSheet.absoluteFillObject,
+  },
+  /** Transparent pinch target above the camera. zIndex 0 pins it under every
+   *  control (the control column and destination chip sit at zIndex 20; the
+   *  rest win on render order). */
+  zoomCatcher: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 0,
   },
   simulatorPlaceholder: {
     ...StyleSheet.absoluteFillObject,

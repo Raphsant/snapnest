@@ -22,6 +22,7 @@ import { useMediaViewer } from '../context/MediaViewerContext';
 import type { ActivityFeedItem } from '../hooks/useActivityFeed';
 import { useAgencyFolderDetails } from '../hooks/useAgencyFolderDetails';
 import { useBatchViewUrls } from '../hooks/useBatchViewUrls';
+import { useRefreshOnFocus } from '../hooks/useRefreshOnFocus';
 import type { AgencyFolderDetailScreenProps } from '../navigation/agencyTypes';
 import type { MediaFile } from '../services/filesService';
 import { enqueueUpload } from '../services/uploadManager';
@@ -85,6 +86,12 @@ export function AgencyFolderDetailScreen({ navigation, route }: Props): React.Re
   useEffect(() => {
     void refetch();
   }, [folderId, refetch]);
+
+  // Same tab-switch gap as the personal folder detail (this screen stays mounted
+  // on blur), and it matters more here: a pipeline clip can land server-side at
+  // any moment with no upload event to invalidate on, so focus is the only
+  // trigger that will show it. Skips its first focus, so no duplicate on mount.
+  useRefreshOnFocus(refetch);
 
   const handleRefresh = useCallback(() => {
     void refetch();

@@ -1,9 +1,9 @@
 import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
+import { Image, type ImageSource } from 'expo-image';
 import {
   ActivityIndicator,
   FlatList,
-  Image,
   Pressable,
   StyleSheet,
   Text,
@@ -106,17 +106,35 @@ const FileGridCell = memo(function FileGridCell({
   // Prefer the thumbnail, fall back to full-res on error (a stale thumb key can
   // 404). Advance through the chain on each onError; exhausting it shows the
   // placeholder icon rather than a broken tile.
-  const sources = useMemo(
-    (): string[] => [thumbnailUri, fullUri].filter((uri): uri is string => uri !== null),
-    [thumbnailUri, fullUri],
-  );
+  //
+  // cacheKey — NOT the uri. Backend view URLs are presigned and re-issued on
+  // every /files/view-urls fetch, so a URL-keyed cache misses on every refetch.
+  // Keying on fileId makes the cache survive refetches. Thumb and full-res are
+  // different images for the same fileId, so they take distinct suffixes — a
+  // shared key would serve the wrong image once the chain falls back.
+  //
+  // Assumes thumbnails are immutable per fileId: the backend generates one at
+  // upload and never regenerates it. If regeneration is ever added, it must
+  // publish under a new key (or the suffix must carry a version) or clients
+  // will keep serving the stale thumb from disk indefinitely.
+  const sources = useMemo((): ImageSource[] => {
+    const chain: ImageSource[] = [];
+    if (thumbnailUri !== null) {
+      chain.push({ uri: thumbnailUri, cacheKey: `${file.id}:thumb` });
+    }
+    if (fullUri !== null) {
+      chain.push({ uri: fullUri, cacheKey: `${file.id}:full` });
+    }
+    return chain;
+  }, [file.id, thumbnailUri, fullUri]);
+
   const [sourceIndex, setSourceIndex] = useState(0);
   useEffect(() => {
     setSourceIndex(0);
   }, [sources]);
 
-  const currentUri = sources[sourceIndex] ?? null;
-  const showImage = currentUri !== null;
+  const currentSource = sources[sourceIndex] ?? null;
+  const showImage = currentSource !== null;
   const handleImageError = useCallback(() => {
     setSourceIndex((index) => index + 1);
   }, []);
@@ -153,9 +171,11 @@ const FileGridCell = memo(function FileGridCell({
     >
       {showImage ? (
         <Image
-          source={{ uri: currentUri }}
+          source={currentSource}
           style={styles.image}
-          resizeMode="cover"
+          contentFit="cover"
+          transition={0}
+          cachePolicy="memory-disk"
           onError={handleImageError}
         />
       ) : (
@@ -201,7 +221,15 @@ const QueueGridCell = memo(function QueueGridCell({
   const inner = (
     <>
       {showLocalPreview ? (
-        <Image source={{ uri: item.localUri }} style={styles.image} resizeMode="cover" />
+        // Already-on-disk capture: memory cache only. The uri is a stable local
+        // path, so no cacheKey is needed and a disk copy would just duplicate it.
+        <Image
+          source={{ uri: item.localUri }}
+          style={styles.image}
+          contentFit="cover"
+          transition={0}
+          cachePolicy="memory"
+        />
       ) : (
         <View style={styles.placeholder}>
           <Ionicons

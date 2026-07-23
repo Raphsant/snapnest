@@ -16,6 +16,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { GlassCard } from '../components/GlassCard';
 import { useAgencyFolders } from '../hooks/useAgencyFolders';
 import { useMe } from '../hooks/useMe';
+import { useRefreshOnFocus } from '../hooks/useRefreshOnFocus';
 import type { AgencyFolderListScreenProps } from '../navigation/agencyTypes';
 import type { AgencyFolder } from '../services/agencyService';
 import { colors } from '../theme/colors';
@@ -75,6 +76,11 @@ export function AgencyFoldersScreen({ navigation }: Props): React.ReactElement {
     refetch,
     isRefetching,
   } = useAgencyFolders(agencyId);
+
+  // Agency folder counts move without any local upload — pipeline clip deliveries
+  // happen server-side, so there is no client event to invalidate on. Focus
+  // refetch is the only thing that surfaces a delivery without pull-to-refresh.
+  useRefreshOnFocus(refetch);
 
   const listBottomPad = insets.bottom + TAB_BAR_BOTTOM_OFFSET + TAB_BAR_OUTER_HEIGHT + spacing.md;
 

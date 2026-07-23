@@ -23,6 +23,7 @@ import { useMediaViewer } from '../context/MediaViewerContext';
 import type { ActivityFeedItem } from '../hooks/useActivityFeed';
 import { useBatchViewUrls } from '../hooks/useBatchViewUrls';
 import { useFolderDetails } from '../hooks/useFolderDetails';
+import { useRefreshOnFocus } from '../hooks/useRefreshOnFocus';
 import { useUnfiledFiles } from '../hooks/useUnfiledFiles';
 import { UNFILED_FILES_FOLDER_PARAM } from '../services/filesService';
 import type { FolderDetailScreenProps } from '../navigation/foldersTypes';
@@ -109,6 +110,13 @@ export function FolderDetailScreen({ navigation, route }: Props): React.ReactEle
   useEffect(() => {
     void refetch();
   }, [folderId, refetch]);
+
+  // Covers the tab-switch return, which the mount effect above cannot see: this
+  // screen stays mounted when the Folders tab blurs (detachInactiveScreens is
+  // false), so capturing into this folder from the Camera tab and switching back
+  // would otherwise show a stale grid. The hook skips its first focus, so this
+  // does not double up with the mount refetch.
+  useRefreshOnFocus(refetch);
 
   const exitSelection = useCallback(() => {
     setIsSelecting(false);

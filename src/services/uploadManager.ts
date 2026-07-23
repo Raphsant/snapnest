@@ -1,4 +1,6 @@
 import { FILES_QUERY_KEY } from '../hooks/useFiles';
+import { folderDetailsQueryKey } from '../hooks/useFolderDetails';
+import { FOLDERS_QUERY_KEY } from '../hooks/useFolders';
 import { selectNextQueued, useUploadQueueStore } from '../store/uploadQueueStore';
 import type { EnqueueUploadInput, UploadQueueItem } from '../types/upload';
 import { queryClient } from './queryClient';
@@ -135,11 +137,31 @@ async function processItem(item: UploadQueueItem): Promise<void> {
 
     getStore().updateItem(id, { status: 'uploaded', progress: 100, errorMessage: null });
 
-    // 5. Refresh the list that will surface the new MediaFile.
+    // 5. Refresh every list that will surface the new MediaFile. Invalidating
+    //    only ['files'] left the destination folder's own view stale, which is
+    //    why a fresh capture needed a pull-to-refresh to appear.
     if (item.agencyId) {
+      // Prefix match — already covers both ['agency','folders',id] and
+      // ['agency','folder',id], so the destination folder is included.
       void queryClient.invalidateQueries({ queryKey: ['agency'] });
     } else {
+      // Prefix-matches ['files','none'], so the legacy unfiled view rides along.
       void queryClient.invalidateQueries({ queryKey: FILES_QUERY_KEY });
+      // Every folder row shows a file count, and one of them just changed.
+      void queryClient.invalidateQueries({ queryKey: FOLDERS_QUERY_KEY });
+
+      if (item.folderId) {
+        void queryClient.invalidateQueries({
+          queryKey: folderDetailsQueryKey(item.folderId),
+        });
+      } else {
+        // No folderId means the backend files this into the per-user system
+        // "Unfiled" folder, whose id we don't have here — and the Unfiled view
+        // is keyed by that real id, not by 'none'. Sweep all folder details
+        // instead. Cheap in practice: invalidate only refetches queries with
+        // active observers, and at most one folder detail screen is mounted.
+        void queryClient.invalidateQueries({ queryKey: ['folder'] });
+      }
     }
     void queryClient.invalidateQueries({ queryKey: ['batchViewUrls'] });
 

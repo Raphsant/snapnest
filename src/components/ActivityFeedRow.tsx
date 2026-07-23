@@ -1,6 +1,7 @@
 import React, { memo, useCallback } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image } from 'expo-image';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { GlassCard } from './GlassCard';
 import type { ActivityFeedItem } from '../hooks/useActivityFeed';
@@ -97,7 +98,17 @@ function FileRow({
     <Pressable onPress={handlePress} style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}>
       <View style={[styles.iconSquare, { backgroundColor: icon.tint }]}>
         {thumbnailUri !== null ? (
-          <Image source={{ uri: thumbnailUri }} style={styles.thumbnail} />
+          // cacheKey, not the uri — the presigned URL changes on every
+          // /files/view-urls fetch and would miss the cache each time. Same
+          // `${fileId}:thumb` key the folder grid uses, so the two screens share
+          // one cache entry instead of each downloading its own copy.
+          <Image
+            source={{ uri: thumbnailUri, cacheKey: `${file.id}:thumb` }}
+            style={styles.thumbnail}
+            contentFit="cover"
+            transition={0}
+            cachePolicy="memory-disk"
+          />
         ) : (
           <Ionicons name={icon.name} size={20} color={icon.color} />
         )}

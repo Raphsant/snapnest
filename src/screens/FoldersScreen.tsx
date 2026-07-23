@@ -22,6 +22,7 @@ import { GlassCard } from '../components/GlassCard';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { useDeleteFolder } from '../hooks/useDeleteFolder';
 import { useFolders } from '../hooks/useFolders';
+import { useRefreshOnFocus } from '../hooks/useRefreshOnFocus';
 import { useUnfiledFiles } from '../hooks/useUnfiledFiles';
 import { UNFILED_FILES_FOLDER_PARAM } from '../services/filesService';
 import type { FoldersListScreenProps } from '../navigation/foldersTypes';
@@ -123,6 +124,11 @@ export function FoldersScreen({ navigation }: Props): React.ReactElement {
   } = useFolders();
 
   const { data: unfiledFiles } = useUnfiledFiles();
+
+  // Folder rows show per-folder file counts, which go stale as soon as a capture
+  // lands anywhere. Refetch when the Folders tab regains focus so returning from
+  // the camera shows the new counts without a pull-to-refresh.
+  useRefreshOnFocus(refetchFolders);
 
   const listBottomPad = insets.bottom + TAB_BAR_BOTTOM_OFFSET + TAB_BAR_OUTER_HEIGHT + spacing.md;
 
