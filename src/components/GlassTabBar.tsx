@@ -1,143 +1,151 @@
-import React, { useEffect, useMemo, useRef } from 'react';
-import { Ionicons } from '@expo/vector-icons';
+import React, { useEffect, useRef } from 'react';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Animated, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Building2, Camera, Clock, Folder, SlidersHorizontal } from 'lucide-react-native';
+import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { colors } from '../theme/colors';
-import { typography } from '../theme/typography';
+import { createThemedStyles } from '../theme/createThemedStyles';
+import { useTheme } from '../theme/tokens';
+import { useUploadQueueStore } from '../store/uploadQueueStore';
+import type { IconComponent } from './ui/types';
 
-const BAR_HEIGHT = 72;
-const H_MARGIN = 16;
-const BOTTOM_MARGIN = 24;
-const FAB_SIZE = 56;
-/** Keep the camera action centered on the same vertical baseline as side icons */
-const FAB_BOTTOM_OFFSET = (BAR_HEIGHT - FAB_SIZE) / 2;
+const BAR_HEIGHT = 64;
+const H_MARGIN = 14;
+/** Gap from the safe-area edge, not the physical edge (added to insets.bottom). */
+const BOTTOM_MARGIN = 26;
 
-const SIDE_ICONS: Record<
-  string,
-  { active: keyof typeof Ionicons.glyphMap; inactive: keyof typeof Ionicons.glyphMap }
-> = {
-  Folders: { active: 'folder', inactive: 'folder-outline' },
-  Activity: { active: 'time', inactive: 'time-outline' },
-  Agency: { active: 'business', inactive: 'business-outline' },
-  Settings: { active: 'settings', inactive: 'settings-outline' },
+const CENTER_SLOT_WIDTH = 78;
+const FAB_SIZE = 60;
+/** Lifts the FAB above the bar's top rim. */
+const FAB_LIFT = 16;
+/** Headroom above the bar so the lifted FAB stays inside the touch-testable area. */
+const FAB_OVERHANG = FAB_LIFT + 8;
+
+const TAB_ICON_SIZE = 22;
+const TAB_ICON_STROKE = 2.5;
+const FAB_ICON_SIZE = 26;
+
+/**
+ * Lucide glyph per route. Keyed by the navigator's route names (Activity renders
+ * as "Uploads"). Camera is intentionally absent — it is the center FAB, not a
+ * labelled tab.
+ */
+const TAB_ICONS: Record<string, IconComponent> = {
+  Folders: Folder,
+  Activity: Clock,
+  Agency: Building2,
+  Settings: SlidersHorizontal,
 };
 
-type AnimatedMap = Record<string, Animated.Value>;
+/** Fixed left-to-right slot order; the empty string marks the center FAB slot. */
+const SLOT_ORDER = ['Folders', 'Activity', '', 'Agency', 'Settings'] as const;
+
+/**
+ * Narrow boolean selector: true when the queue holds anything not yet uploaded
+ * (queued, uploading, or failed). Returning a boolean means the bar only
+ * re-renders when the flag flips, not on every progress tick. Defined here rather
+ * than in the store — the store is out of scope for this phase.
+ */
+const selectHasPending = (state: { items: { status: string }[] }): boolean =>
+  state.items.some((item) => item.status !== 'uploaded');
 
 export function GlassTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
-  const animatedValues = useRef<AnimatedMap>({});
-  const fabScale = useRef(new Animated.Value(1)).current;
+  const theme = useTheme();
+  const styles = useStyles();
+  const hasPending = useUploadQueueStore(selectHasPending);
 
-  const bottomOffset = insets.bottom + BOTTOM_MARGIN;
+  const tabScales = useRef<Record<string, Animated.Value>>({});
+  // Pulse and press are separate values multiplied into one transform, so the
+  // continuous pulse loop and a momentary press bounce never fight over the FAB.
+  const fabPulse = useRef(new Animated.Value(1)).current;
+  const fabPress = useRef(new Animated.Value(1)).current;
+
+  state.routes.forEach((route) => {
+    if (!tabScales.current[route.key]) {
+      tabScales.current[route.key] = new Animated.Value(1);
+    }
+  });
 
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
-        // Subtle "alive" pulse to emphasize the primary camera action.
-        Animated.timing(fabScale, { toValue: 1.04, duration: 1250, useNativeDriver: true }),
-        Animated.timing(fabScale, { toValue: 1, duration: 1250, useNativeDriver: true }),
-      ])
+        Animated.timing(fabPulse, {
+          toValue: 1.05,
+          duration: 1500,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(fabPulse, {
+          toValue: 1,
+          duration: 1500,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ]),
     );
     loop.start();
-
     return () => {
       loop.stop();
-      fabScale.stopAnimation();
-      fabScale.setValue(1);
+      fabPulse.stopAnimation();
+      fabPulse.setValue(1);
     };
-  }, [fabScale]);
+  }, [fabPulse]);
 
-  state.routes.forEach((route) => {
-    if (!animatedValues.current[route.key]) {
-      animatedValues.current[route.key] = new Animated.Value(1);
-    }
-  });
-
-  const { leftRoutes, rightRoutes } = useMemo(() => {
-    const folders = state.routes.find((r) => r.name === 'Folders');
-    const activity = state.routes.find((r) => r.name === 'Activity');
-    const agency = state.routes.find((r) => r.name === 'Agency');
-    const settings = state.routes.find((r) => r.name === 'Settings');
-    return {
-      // Folders + Activity on the left; Agency (only when present for agency-linked
-      // users) + Settings on the right. The Camera FAB occupies the visual center
-      // via the fixed-width centerSpacer below. Any unknown/absent route is dropped.
-      leftRoutes: [folders, activity].filter(Boolean) as typeof state.routes,
-      rightRoutes: [agency, settings].filter(Boolean) as typeof state.routes,
-    };
-  }, [state.routes]);
-
-  const pressTab = (routeKey: string, routeName: string, indexInState: number): void => {
-    const scale = animatedValues.current[routeKey];
-    if (scale) {
-      Animated.sequence([
-        Animated.spring(scale, { toValue: 0.92, useNativeDriver: true, friction: 6 }),
-        Animated.spring(scale, { toValue: 1, useNativeDriver: true, friction: 6 }),
-      ]).start();
-    }
-
-    const event = navigation.emit({
-      type: 'tabPress',
-      target: routeKey,
-      canPreventDefault: true,
-    });
-
-    if (!event.defaultPrevented) {
-      const isFocused = state.index === indexInState;
-      if (!isFocused) {
-        navigation.navigate(routeName);
-      }
-    }
-  };
-
-  const onFabPress = (): void => {
+  const bounce = (value: Animated.Value, friction: number): void => {
     Animated.sequence([
-      Animated.spring(fabScale, { toValue: 0.92, useNativeDriver: true, friction: 5 }),
-      Animated.spring(fabScale, { toValue: 1, useNativeDriver: true, friction: 5 }),
+      Animated.spring(value, { toValue: 0.92, useNativeDriver: true, friction }),
+      Animated.spring(value, { toValue: 1, useNativeDriver: true, friction }),
     ]).start();
+  };
 
-    const cameraIndex = state.routes.findIndex((r) => r.name === 'Camera');
-    if (cameraIndex < 0) {
-      return;
-    }
-    const route = state.routes[cameraIndex];
-    const event = navigation.emit({
-      type: 'tabPress',
-      target: route.key,
-      canPreventDefault: true,
-    });
-    if (!event.defaultPrevented && state.index !== cameraIndex) {
-      navigation.navigate('Camera');
+  /** Shared tabPress flow: emit, respect defaultPrevented, skip if already focused. */
+  const activateRoute = (routeKey: string, routeName: string): void => {
+    const routeIndex = state.routes.findIndex((r) => r.key === routeKey);
+    const event = navigation.emit({ type: 'tabPress', target: routeKey, canPreventDefault: true });
+    if (!event.defaultPrevented && state.index !== routeIndex) {
+      navigation.navigate(routeName);
     }
   };
 
-  const renderSideTab = (route: (typeof state.routes)[0]): React.ReactElement => {
-    const indexInState = state.routes.findIndex((r) => r.key === route.key);
-    const isFocused = state.index === indexInState;
+  const renderTab = (routeName: string): React.ReactElement => {
+    const route = state.routes.find((r) => r.name === routeName);
+    // Preserve the grid if a route is absent (e.g. Agency dropped for some user).
+    if (!route) {
+      return <View key={routeName} style={styles.slot} />;
+    }
+
+    const routeIndex = state.routes.findIndex((r) => r.key === route.key);
+    const isFocused = state.index === routeIndex;
     const { options } = descriptors[route.key];
     const label = String(options.tabBarLabel ?? options.title ?? route.name);
-    const icons = SIDE_ICONS[route.name];
-    const iconName = isFocused ? icons.active : icons.inactive;
-    const tintColor = isFocused ? colors.accentBlue : colors.tabInactive;
-    const animatedScale = animatedValues.current[route.key];
+    const Icon = TAB_ICONS[routeName];
+    const tint = isFocused ? theme.colors.accent : theme.colors.faint;
+    const scale = tabScales.current[route.key];
+
+    // The pending dot rides the Uploads tab and doubles as a VoiceOver hint.
+    const showDot = routeName === 'Activity' && hasPending;
+    const a11yLabel = showDot ? `${label}, uploads pending` : label;
 
     return (
       <Pressable
         key={route.key}
         accessibilityRole="button"
-        accessibilityState={isFocused ? { selected: true } : {}}
-        onPress={() => pressTab(route.key, route.name, indexInState)}
+        accessibilityState={{ selected: isFocused }}
+        accessibilityLabel={a11yLabel}
+        onPress={() => {
+          bounce(scale, 6);
+          activateRoute(route.key, route.name);
+        }}
         onLongPress={() => navigation.emit({ type: 'tabLongPress', target: route.key })}
-        style={styles.sideTab}
+        style={styles.slot}
       >
-        <Animated.View style={[styles.tabInner, animatedScale ? { transform: [{ scale: animatedScale }] } : null]}>
-          <Ionicons name={iconName} size={22} color={tintColor} />
-          <Text style={[styles.tabLabel, { color: tintColor }]} numberOfLines={1}>
+        <Animated.View style={[styles.tabInner, scale ? { transform: [{ scale }] } : null]}>
+          <View>
+            {Icon ? <Icon size={TAB_ICON_SIZE} color={tint} strokeWidth={TAB_ICON_STROKE} /> : null}
+            {showDot ? <View style={styles.dot} /> : null}
+          </View>
+          <Text style={[styles.tabLabel, { color: tint }]} numberOfLines={1}>
             {label}
           </Text>
         </Animated.View>
@@ -145,150 +153,110 @@ export function GlassTabBar({ state, descriptors, navigation }: BottomTabBarProp
     );
   };
 
-  const fabFocused = state.routes[state.index]?.name === 'Camera';
+  const renderFab = (): React.ReactElement => {
+    const route = state.routes.find((r) => r.name === 'Camera');
+    const isFocused = route ? state.index === state.routes.indexOf(route) : false;
 
-  return (
-    <View
-      style={[
-        styles.outer,
-        {
-          bottom: bottomOffset,
-          left: H_MARGIN,
-          right: H_MARGIN,
-        },
-      ]}
-      pointerEvents="box-none"
-    >
-      <View style={styles.barStack} pointerEvents="box-none">
-        <View style={styles.barClip}>
-          <BlurView intensity={76} tint="light" style={styles.blur}>
-            {/* Translucent wash so the bar reads on top of the dark camera preview */}
-            <View style={styles.lightWash} />
-            <View style={styles.row}>
-              <View style={styles.sideCluster}>{leftRoutes.map((route) => renderSideTab(route))}</View>
-              <View style={styles.centerSpacer} />
-              <View style={styles.sideCluster}>
-                {rightRoutes.map((route) => renderSideTab(route))}
-              </View>
-            </View>
-          </BlurView>
-        </View>
-
+    return (
+      <View key="__fab" style={styles.centerSlot}>
         <Animated.View
-          style={[styles.fabWrap, { transform: [{ scale: fabScale }] }]}
-          pointerEvents="box-none"
+          style={{ transform: [{ scale: Animated.multiply(fabPulse, fabPress) }] }}
         >
           <Pressable
             accessibilityRole="button"
-            accessibilityState={fabFocused ? { selected: true } : {}}
+            accessibilityLabel="Camera"
+            accessibilityState={{ selected: isFocused }}
             hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
-            onPress={onFabPress}
-            style={({ pressed }) => [styles.fabPressable, pressed && { opacity: 0.94 }]}
+            onPress={() => {
+              bounce(fabPress, 5);
+              if (route) {
+                activateRoute(route.key, 'Camera');
+              }
+            }}
+            style={styles.fab}
           >
-            <LinearGradient
-              colors={[colors.accentBlue, colors.accentBlueDark]}
-              start={{ x: 0.3, y: 0 }}
-              end={{ x: 0.8, y: 1 }}
-              style={styles.fabGradient}
-            >
-              <Ionicons name="camera" size={26} color={colors.card} />
-            </LinearGradient>
+            <Camera size={FAB_ICON_SIZE} color={theme.colors.white} strokeWidth={TAB_ICON_STROKE} />
           </Pressable>
         </Animated.View>
+      </View>
+    );
+  };
+
+  return (
+    <View
+      pointerEvents="box-none"
+      style={[
+        styles.outer,
+        { bottom: insets.bottom + BOTTOM_MARGIN, left: H_MARGIN, right: H_MARGIN },
+      ]}
+    >
+      <View style={styles.bar}>
+        {SLOT_ORDER.map((name) => (name === '' ? renderFab() : renderTab(name)))}
       </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createThemedStyles((t) => StyleSheet.create({
   outer: {
     position: 'absolute',
-    height: BAR_HEIGHT + 32,
-    overflow: 'visible',
-  },
-  barStack: {
-    flex: 1,
+    height: BAR_HEIGHT + FAB_OVERHANG,
     justifyContent: 'flex-end',
-    overflow: 'visible',
   },
-  barClip: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
+  bar: {
+    flexDirection: 'row',
+    alignItems: 'center',
     height: BAR_HEIGHT,
-    borderRadius: 32,
-    overflow: 'hidden',
+    borderRadius: t.radius.pill,
+    backgroundColor: t.colors.glass,
     borderWidth: 1,
-    borderColor: colors.glassBorder,
-    backgroundColor: colors.glassSurface,
-    shadowColor: colors.primaryNavy,
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 8,
+    borderColor: t.colors.line,
+    ...t.shadows.lg,
   },
-  blur: {
+  slot: {
     flex: 1,
+    alignItems: 'center',
     justifyContent: 'center',
   },
-  lightWash: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: colors.tabBarLightOverlay,
-  },
-  row: {
-    flexDirection: 'row',
+  centerSlot: {
+    width: CENTER_SLOT_WIDTH,
     alignItems: 'center',
-    paddingHorizontal: 6,
-    paddingVertical: 8,
-    minHeight: BAR_HEIGHT - 8,
-  },
-  sideCluster: {
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-  },
-  centerSpacer: {
-    width: FAB_SIZE + 8,
-  },
-  sideTab: {
-    flex: 1,
-    maxWidth: '50%',
-    alignItems: 'center',
+    justifyContent: 'center',
   },
   tabInner: {
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
-    paddingVertical: 4,
+    gap: 3,
   },
   tabLabel: {
-    ...typography.bodySmall,
-    fontWeight: Platform.OS === 'ios' ? '600' : '500',
-    maxWidth: 72,
-    textAlign: 'center',
+    fontFamily: t.typography.body[600],
+    fontSize: 10,
   },
-  fabWrap: {
+  dot: {
     position: 'absolute',
-    alignSelf: 'center',
-    bottom: FAB_BOTTOM_OFFSET,
-    zIndex: 10,
+    top: -2,
+    right: -3,
+    width: 8,
+    height: 8,
+    borderRadius: t.radius.pill,
+    backgroundColor: t.colors.accent,
+    borderWidth: 1.5,
+    borderColor: t.colors.card,
   },
-  fabPressable: {
-    borderRadius: FAB_SIZE / 2,
-    overflow: 'hidden',
-    shadowColor: colors.cameraFabShadow,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 1,
-    shadowRadius: 14,
-    elevation: 10,
-  },
-  fabGradient: {
+  fab: {
     width: FAB_SIZE,
     height: FAB_SIZE,
+    marginTop: -FAB_LIFT,
     borderRadius: FAB_SIZE / 2,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: t.colors.accent,
+    borderWidth: 3,
+    borderColor: t.colors.card,
+    shadowColor: t.colors.accentShadow,
+    shadowOpacity: 0.35,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 12,
   },
-});
+}));

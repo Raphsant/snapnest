@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 
+import { ScreenTransition } from '../components/ScreenTransition';
 import { FolderDetailScreen } from '../screens/FolderDetailScreen';
 import { FoldersScreen } from '../screens/FoldersScreen';
 import type { FoldersNavigationProp, FoldersStackParamList } from './foldersTypes';
@@ -29,14 +30,19 @@ export function FoldersStack(): React.ReactElement {
     [],
   );
 
-  if (route.screen === 'FolderDetail') {
-    return (
-      <FolderDetailScreen
-        navigation={{ goBack: navigation.goBack }}
-        route={{ params: route.params }}
-      />
-    );
-  }
-
-  return <FoldersScreen navigation={{ navigate: navigation.navigate }} />;
+  return (
+    <ScreenTransition
+      transitionKey={route.screen}
+      kind={route.screen === 'FolderDetail' ? 'push' : 'pop'}
+    >
+      {route.screen === 'FolderDetail' ? (
+        <FolderDetailScreen
+          navigation={{ goBack: navigation.goBack }}
+          route={{ params: route.params }}
+        />
+      ) : (
+        <FoldersScreen navigation={{ navigate: navigation.navigate }} />
+      )}
+    </ScreenTransition>
+  );
 }

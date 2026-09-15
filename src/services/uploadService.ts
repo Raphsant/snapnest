@@ -23,6 +23,12 @@ export type PresignedUploadResponse = {
   expiresAt: string;
   /** Presigned PUT for the thumbnail (bound to Content-Type: image/jpeg). Null unless hasThumbnail was sent. */
   thumbnailUploadUrl: string | null;
+  /**
+   * Auto-generated human name the backend assigned this capture (Prompt A),
+   * e.g. "Rooftop 07". Surfaced in the capture toast. Nullable because older
+   * backends and non-camera sources may omit it — callers fall back to fileName.
+   */
+  displayName: string | null;
 };
 
 /**

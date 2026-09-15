@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { ChevronLeft } from 'lucide-react-native';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -6,17 +7,17 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { PrimaryButton } from '../../components/PrimaryButton';
+import { PillInput } from '../../components/auth/PillInput';
+import { DisplayText } from '../../components/ui/DisplayText';
+import { PillButton } from '../../components/ui/PillButton';
 import type { AuthScreenProps } from '../../navigation/authTypes';
 import * as authService from '../../services/authService';
-import { colors } from '../../theme/colors';
-import { spacing } from '../../theme/spacing';
-import { typography } from '../../theme/typography';
+import { createThemedStyles } from '../../theme/createThemedStyles';
+import { useTheme } from '../../theme/tokens';
 
 type Props = AuthScreenProps<'SignUp'>;
 
@@ -37,11 +38,32 @@ function validateForm(firstName: string, email: string, password: string): strin
   return null;
 }
 
+/**
+ * UI-only strength readout. The only real rule is length >= 8 (enforced by
+ * validateForm); these tiers never gate submit — they just guide the user.
+ */
+function passwordStrength(pw: string): { tiers: number; hint: string } {
+  let tiers = 0;
+  if (pw.length >= 8) tiers += 1;
+  if (pw.length >= 12) tiers += 1;
+  if (/[a-z]/.test(pw) && /[A-Z]/.test(pw) && /\d/.test(pw)) tiers += 1;
+  const hint =
+    tiers >= 3
+      ? 'Strong password.'
+      : tiers === 2
+        ? 'Good — a longer password is even stronger.'
+        : tiers === 1
+          ? 'Okay — add length or mix in upper, lower & a number.'
+          : 'Use at least 8 characters.';
+  return { tiers, hint };
+}
+
 export function SignUpScreen({ navigation }: Props) {
+  const theme = useTheme();
+  const styles = useStyles();
   const [firstName, setFirstName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -54,6 +76,8 @@ export function SignUpScreen({ navigation }: Props) {
       EMAIL_REGEX.test(email.trim()),
     [firstName, email, password],
   );
+
+  const strength = passwordStrength(password);
 
   const onSignUp = async (): Promise<void> => {
     const clientError = validateForm(firstName, email, password);
@@ -92,169 +116,159 @@ export function SignUpScreen({ navigation }: Props) {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          <Text style={styles.title}>Create account</Text>
-          <Text style={styles.subtitle}>Join SnapNest with your email</Text>
+          <Pressable
+            onPress={() => navigation.navigate('Login', {})}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel="Back to log in"
+            style={({ pressed }) => [styles.back, pressed && styles.pressed]}
+          >
+            <ChevronLeft size={18} color={theme.colors.accent} strokeWidth={2.4} />
+            <Text style={styles.backLabel}>Log in</Text>
+          </Pressable>
 
-          <View style={styles.fieldGroup}>
-            <Text style={styles.label}>First name</Text>
-            <TextInput
-              value={firstName}
-              onChangeText={setFirstName}
-              placeholder="Nicole"
-              placeholderTextColor={colors.mutedText}
-              autoCapitalize="words"
-              style={styles.input}
-            />
-          </View>
+          <DisplayText size={30}>Create your account</DisplayText>
+          <Text style={styles.subtitle}>Two minutes, then you can start shooting.</Text>
 
-          <View style={styles.fieldGroup}>
-            <Text style={styles.label}>Email</Text>
-            <TextInput
-              value={email}
-              onChangeText={setEmail}
-              placeholder="you@example.com"
-              placeholderTextColor={colors.mutedText}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              autoCorrect={false}
-              textContentType="emailAddress"
-              style={styles.input}
-            />
-          </View>
+          <PillInput
+            label="First name"
+            value={firstName}
+            onChangeText={setFirstName}
+            placeholder="Nicole"
+            autoCapitalize="words"
+            containerStyle={styles.field}
+          />
 
-          <View style={styles.fieldGroup}>
-            <Text style={styles.label}>Password</Text>
-            <View style={styles.passwordRow}>
-              <TextInput
-                value={password}
-                onChangeText={setPassword}
-                placeholder="At least 8 characters"
-                placeholderTextColor={colors.mutedText}
-                secureTextEntry={!showPassword}
-                autoCapitalize="none"
-                textContentType="newPassword"
-                style={[styles.input, styles.passwordInput]}
-              />
-              <Pressable
-                onPress={() => {
-                  setShowPassword((v) => !v);
-                }}
-                hitSlop={12}
-                style={styles.eyeButton}
-                accessibilityRole="button"
-                accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
-              >
-                <Text style={styles.eyeText}>{showPassword ? 'Hide' : 'Show'}</Text>
-              </Pressable>
+          <PillInput
+            label="Email"
+            value={email}
+            onChangeText={setEmail}
+            placeholder="you@example.com"
+            autoCapitalize="none"
+            keyboardType="email-address"
+            autoCorrect={false}
+            textContentType="emailAddress"
+            containerStyle={styles.field}
+          />
+
+          <PillInput
+            label="Password"
+            value={password}
+            onChangeText={setPassword}
+            placeholder="At least 8 characters"
+            secureTextEntry
+            autoCapitalize="none"
+            textContentType="newPassword"
+            containerStyle={styles.field}
+          />
+
+          {password.length > 0 ? (
+            <View style={styles.strength}>
+              <View style={styles.strengthBar}>
+                {[0, 1, 2].map((i) => (
+                  <View
+                    key={i}
+                    style={[styles.strengthSeg, i < strength.tiers ? styles.strengthOn : styles.strengthOff]}
+                  />
+                ))}
+              </View>
+              <Text style={styles.strengthHint}>{strength.hint}</Text>
             </View>
-          </View>
+          ) : null}
 
           {validationError ? <Text style={styles.errorText}>{validationError}</Text> : null}
           {submitError ? <Text style={styles.errorText}>{submitError}</Text> : null}
 
-          <PrimaryButton
-            label={loading ? 'Signing up...' : 'Sign Up'}
-            onPress={() => {
-              void onSignUp();
-            }}
+          <PillButton
+            title={loading ? 'Creating account…' : 'Create account'}
+            height={54}
+            onPress={() => void onSignUp()}
             disabled={loading || !canSubmit}
-            style={styles.primaryBtn}
           />
 
-          <Pressable
-            onPress={() => navigation.navigate('Login', {})}
-            accessibilityRole="button"
-            style={styles.footerLinkWrap}
-          >
-            <Text style={styles.footerMuted}>
-              Already have an account? <Text style={styles.footerLink}>Log In</Text>
-            </Text>
-          </Pressable>
+          <Text style={styles.terms}>
+            By creating an account you agree to our Terms and Privacy Policy.
+          </Text>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createThemedStyles((theme) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: theme.colors.bg,
   },
   flex: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: spacing.xxl,
-    paddingBottom: spacing.xxxl,
-    paddingTop: spacing.lg,
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    paddingBottom: 40,
   },
-  title: {
-    ...typography.h1,
-    color: colors.primaryNavy,
-  },
-  subtitle: {
-    ...typography.body,
-    color: colors.mutedText,
-    marginTop: spacing.sm,
-    marginBottom: spacing.xxl,
-  },
-  fieldGroup: {
-    marginBottom: spacing.lg,
-  },
-  label: {
-    ...typography.bodySmall,
-    color: colors.mutedText,
-    marginBottom: spacing.sm,
-    fontWeight: '600',
-  },
-  // Subtle glass-ish field: translucent white + border so it reads on gradient-style screens
-  input: {
-    height: 52,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: 'rgba(255,255,255,0.72)',
-    paddingHorizontal: spacing.lg,
-    ...typography.body,
-    color: colors.primaryNavy,
-  },
-  passwordRow: {
+  back: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 2,
+    marginLeft: -4,
+    marginBottom: 16,
   },
-  passwordInput: {
+  backLabel: {
+    fontFamily: theme.typography.body[600],
+    fontSize: 15.5,
+    color: theme.colors.accent,
+  },
+  pressed: {
+    opacity: 0.7,
+  },
+  subtitle: {
+    marginTop: 6,
+    marginBottom: 24,
+    fontFamily: theme.typography.body[400],
+    fontSize: 15,
+    color: theme.colors.muted,
+  },
+  field: {
+    marginBottom: 16,
+  },
+  strength: {
+    marginTop: -4,
+    marginBottom: 12,
+    gap: 7,
+  },
+  strengthBar: {
+    flexDirection: 'row',
+    gap: 5,
+  },
+  strengthSeg: {
     flex: 1,
-    paddingRight: 72,
+    height: 5,
+    borderRadius: theme.radius.pill,
   },
-  eyeButton: {
-    position: 'absolute',
-    right: spacing.md,
-    paddingVertical: spacing.sm,
+  strengthOn: {
+    backgroundColor: theme.colors.ok,
   },
-  eyeText: {
-    ...typography.bodySmall,
-    color: colors.accentBlue,
-    fontWeight: '600',
+  strengthOff: {
+    backgroundColor: theme.colors.card2,
+  },
+  strengthHint: {
+    fontFamily: theme.typography.body[400],
+    fontSize: 12,
+    color: theme.colors.muted,
   },
   errorText: {
-    ...typography.bodySmall,
-    color: colors.error,
-    marginBottom: spacing.md,
+    marginBottom: 12,
+    fontFamily: theme.typography.body[500],
+    fontSize: 12.5,
+    color: theme.colors.danger,
   },
-  primaryBtn: {
-    marginTop: spacing.md,
+  terms: {
+    marginTop: 16,
+    fontFamily: theme.typography.body[400],
+    fontSize: 11.5,
+    color: theme.colors.faint,
+    textAlign: 'center',
   },
-  footerLinkWrap: {
-    marginTop: spacing.xxl,
-    alignItems: 'center',
-  },
-  footerMuted: {
-    ...typography.body,
-    color: colors.mutedText,
-  },
-  footerLink: {
-    color: colors.accentBlue,
-    fontWeight: '600',
-  },
-});
+}));

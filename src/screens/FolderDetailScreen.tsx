@@ -1,84 +1,78 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ChevronLeft } from 'lucide-react-native';
 import {
   ActivityIndicator,
   Alert,
   Pressable,
   RefreshControl,
+  ScrollView,
+  Share,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FolderPickerSheet } from '../components/FolderPickerSheet';
-import { GlassCard } from '../components/GlassCard';
-import { GridSelectionToolbar } from '../components/GridSelectionToolbar';
-import {
-  MediaThumbnailGrid,
-  type GridSelectionState,
-} from '../components/MediaThumbnailGrid';
+import { FolderMediaGrid } from '../components/FolderMediaGrid';
+import { SelectionTray } from '../components/SelectionTray';
+import { Card } from '../components/ui/Card';
+import { DisplayText } from '../components/ui/DisplayText';
+import { PillButton } from '../components/ui/PillButton';
+import { Toast } from '../components/ui/Toast';
 import { useMediaViewer } from '../context/MediaViewerContext';
-import type { ActivityFeedItem } from '../hooks/useActivityFeed';
 import { useBatchViewUrls } from '../hooks/useBatchViewUrls';
-import { useFolderDetails } from '../hooks/useFolderDetails';
+import { folderDetailsQueryKey, useFolderDetails } from '../hooks/useFolderDetails';
+import { useFolders } from '../hooks/useFolders';
 import { useRefreshOnFocus } from '../hooks/useRefreshOnFocus';
-import { useUnfiledFiles } from '../hooks/useUnfiledFiles';
-import { UNFILED_FILES_FOLDER_PARAM } from '../services/filesService';
+import { UNFILED_FILES_QUERY_KEY, useUnfiledFiles } from '../hooks/useUnfiledFiles';
+import {
+  BATCH_MOVE_UNFILED,
+  UNFILED_FILES_FOLDER_PARAM,
+  requestBatchDelete,
+  requestBatchMove,
+  type MediaFile,
+} from '../services/filesService';
+import type { FolderDetails } from '../services/foldersService';
+import { queryClient } from '../services/queryClient';
 import type { FolderDetailScreenProps } from '../navigation/foldersTypes';
-import type { MediaFile } from '../services/filesService';
-import { colors } from '../theme/colors';
-import { spacing } from '../theme/spacing';
-import { typography } from '../theme/typography';
-import { batchDeleteFiles, batchMoveFiles } from '../utils/batchFileOperations';
+import { createThemedStyles } from '../theme/createThemedStyles';
+import { useTheme } from '../theme/tokens';
 
-/** Matches FoldersScreen / ActivityScreen — clears floating GlassTabBar. */
-const TAB_BAR_BOTTOM_OFFSET = 24;
-const TAB_BAR_OUTER_HEIGHT = 72 + 32;
+/** Content scrolls under the floating tab bar; clear it. */
+const BOTTOM_PADDING = 150;
+const TOAST_MS = 2600;
 
 type Props = FolderDetailScreenProps;
+type FilterKind = 'all' | 'photos' | 'videos' | 'notBacked';
+type ToastState = { title: string; subtitle?: string } | null;
 
-function mediaFilesToFeedItems(files: MediaFile[]): ActivityFeedItem[] {
-  const items: ActivityFeedItem[] = files.map((file) => {
-    const ts = Date.parse(file.createdAt);
-    return {
-      kind: 'file',
-      item: file,
-      createdAt: Number.isFinite(ts) ? ts : 0,
-    };
-  });
-  items.sort((a, b) => b.createdAt - a.createdAt);
-  return items;
+function isPhoto(file: MediaFile): boolean {
+  return file.fileType === 'PHOTO' || file.mimeType.startsWith('image/');
 }
-
-function showBatchResultAlert(action: 'move' | 'delete', succeeded: number, failed: number): void {
-  if (failed === 0) {
-    return;
-  }
-  const title = action === 'move' ? 'Move incomplete' : 'Delete incomplete';
-  const body =
-    failed === 1
-      ? `${succeeded} succeeded, 1 failed.`
-      : `${succeeded} succeeded, ${failed} failed.`;
-  Alert.alert(title, body, [{ text: 'OK' }]);
+function isVideoFile(file: MediaFile): boolean {
+  return file.fileType === 'VIDEO' || file.mimeType.startsWith('video/');
 }
 
 export function FolderDetailScreen({ navigation, route }: Props): React.ReactElement {
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
+  const styles = useStyles();
   const { folderId, folderName } = route.params;
   const isUnfiledView = folderId === UNFILED_FILES_FOLDER_PARAM;
   const { openGallery } = useMediaViewer();
 
   const [isSelecting, setIsSelecting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(() => new Set());
-  const [batchBusy, setBatchBusy] = useState(false);
   const [pickerVisible, setPickerVisible] = useState(false);
+  const [filter, setFilter] = useState<FilterKind>('all');
+  const [toast, setToast] = useState<ToastState>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const unfiledFilesQuery = useUnfiledFiles();
   const folderDetailsQuery = useFolderDetails(folderId);
-
   const activeQuery = isUnfiledView ? unfiledFilesQuery : folderDetailsQuery;
+  const { data: allFolders } = useFolders();
 
   const files = useMemo((): MediaFile[] => {
     if (isUnfiledView) {
@@ -87,36 +81,68 @@ export function FolderDetailScreen({ navigation, route }: Props): React.ReactEle
     return folderDetailsQuery.data?.files ?? [];
   }, [isUnfiledView, unfiledFilesQuery.data, folderDetailsQuery.data?.files]);
 
-  const feedItems = useMemo(() => mediaFilesToFeedItems(files), [files]);
-
-  const selectableFileIds = useMemo((): string[] => {
-    return feedItems
-      .filter((entry) => entry.kind === 'file' && entry.item.uploadStatus === 'UPLOADED')
-      .map((entry) => entry.item.id);
-  }, [feedItems]);
-
-  const uploadedFileIds = useMemo((): string[] => {
-    return files
-      .filter((file) => file.uploadStatus === 'UPLOADED')
-      .map((file) => file.id);
-  }, [files]);
-
+  const uploadedFileIds = useMemo(
+    () => files.filter((f) => f.uploadStatus === 'UPLOADED').map((f) => f.id),
+    [files],
+  );
   const { data: viewUrlByFileId } = useBatchViewUrls(uploadedFileIds);
-
-  const listBottomPad = insets.bottom + TAB_BAR_BOTTOM_OFFSET + TAB_BAR_OUTER_HEIGHT + spacing.md;
 
   const { isLoading, isError, error, refetch, isRefetching } = activeQuery;
 
   useEffect(() => {
     void refetch();
   }, [folderId, refetch]);
-
-  // Covers the tab-switch return, which the mount effect above cannot see: this
-  // screen stays mounted when the Folders tab blurs (detachInactiveScreens is
-  // false), so capturing into this folder from the Camera tab and switching back
-  // would otherwise show a stale grid. The hook skips its first focus, so this
-  // does not double up with the mount refetch.
   useRefreshOnFocus(refetch);
+
+  useEffect(() => {
+    return () => {
+      if (toastTimer.current) {
+        clearTimeout(toastTimer.current);
+      }
+    };
+  }, []);
+
+  // Counts (over the full list, independent of the active filter).
+  const counts = useMemo(() => {
+    let photos = 0;
+    let videos = 0;
+    let notBacked = 0;
+    for (const file of files) {
+      if (isPhoto(file)) photos += 1;
+      else if (isVideoFile(file)) videos += 1;
+      if (file.uploadStatus !== 'UPLOADED') notBacked += 1;
+    }
+    return { total: files.length, photos, videos, notBacked };
+  }, [files]);
+
+  const filteredFiles = useMemo((): MediaFile[] => {
+    switch (filter) {
+      case 'photos':
+        return files.filter(isPhoto);
+      case 'videos':
+        return files.filter(isVideoFile);
+      case 'notBacked':
+        return files.filter((f) => f.uploadStatus !== 'UPLOADED');
+      default:
+        return files;
+    }
+  }, [files, filter]);
+
+  const selectedFiles = useMemo(
+    () => files.filter((f) => selectedIds.has(f.id)),
+    [files, selectedIds],
+  );
+  // RN Share is single-URL: enable only for one uploaded file.
+  const canShare =
+    selectedFiles.length === 1 && selectedFiles[0].uploadStatus === 'UPLOADED';
+
+  const showToast = useCallback((title: string, subtitle?: string) => {
+    if (toastTimer.current) {
+      clearTimeout(toastTimer.current);
+    }
+    setToast({ title, subtitle });
+    toastTimer.current = setTimeout(() => setToast(null), TOAST_MS);
+  }, []);
 
   const exitSelection = useCallback(() => {
     setIsSelecting(false);
@@ -126,11 +152,7 @@ export function FolderDetailScreen({ navigation, route }: Props): React.ReactEle
 
   const enterSelection = useCallback((initialFileId?: string) => {
     setIsSelecting(true);
-    if (initialFileId !== undefined) {
-      setSelectedIds(new Set([initialFileId]));
-    } else {
-      setSelectedIds(new Set());
-    }
+    setSelectedIds(initialFileId !== undefined ? new Set([initialFileId]) : new Set());
   }, []);
 
   const handleRefresh = useCallback(() => {
@@ -143,10 +165,9 @@ export function FolderDetailScreen({ navigation, route }: Props): React.ReactEle
         return;
       }
       const startIndex = files.findIndex((f) => f.id === file.id);
-      if (startIndex < 0) {
-        return;
+      if (startIndex >= 0) {
+        openGallery(files, startIndex);
       }
-      openGallery(files, startIndex);
     },
     [files, isSelecting, openGallery],
   );
@@ -154,52 +175,118 @@ export function FolderDetailScreen({ navigation, route }: Props): React.ReactEle
   const handleToggleSelect = useCallback((fileId: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(fileId)) {
-        next.delete(fileId);
-      } else {
-        next.add(fileId);
-      }
+      if (next.has(fileId)) next.delete(fileId);
+      else next.add(fileId);
       return next;
     });
   }, []);
 
   const handleLongPressFile = useCallback(
-    (file: MediaFile) => {
-      enterSelection(file.id);
-    },
+    (file: MediaFile) => enterSelection(file.id),
     [enterSelection],
   );
 
   const handleSelectAll = useCallback(() => {
-    setSelectedIds(new Set(selectableFileIds));
-  }, [selectableFileIds]);
+    setSelectedIds(new Set(filteredFiles.map((f) => f.id)));
+  }, [filteredFiles]);
 
-  const handleDeselectAll = useCallback(() => {
-    setSelectedIds(new Set());
+  // Optimistically drop ids from whichever query backs this view; returns a
+  // rollback that restores the pre-mutation snapshot on failure.
+  const optimisticallyRemove = useCallback(
+    (ids: readonly string[]): (() => void) => {
+      const idSet = new Set(ids);
+      if (isUnfiledView) {
+        const prev = queryClient.getQueryData<MediaFile[]>(UNFILED_FILES_QUERY_KEY);
+        if (prev) {
+          queryClient.setQueryData<MediaFile[]>(
+            UNFILED_FILES_QUERY_KEY,
+            prev.filter((f) => !idSet.has(f.id)),
+          );
+        }
+        return () => {
+          if (prev) queryClient.setQueryData(UNFILED_FILES_QUERY_KEY, prev);
+        };
+      }
+      const key = folderDetailsQueryKey(folderId);
+      const prev = queryClient.getQueryData<FolderDetails>(key);
+      if (prev) {
+        queryClient.setQueryData<FolderDetails>(key, {
+          ...prev,
+          files: prev.files.filter((f) => !idSet.has(f.id)),
+        });
+      }
+      return () => {
+        if (prev) queryClient.setQueryData(key, prev);
+      };
+    },
+    [folderId, isUnfiledView],
+  );
+
+  // Reconcile server truth after a batch op: skipped files reappear, counts update.
+  const reconcile = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: ['folders'] });
+    void queryClient.invalidateQueries({ queryKey: ['folder'] });
+    void queryClient.invalidateQueries({ queryKey: ['files'] });
+    void queryClient.invalidateQueries({ queryKey: ['batchViewUrls'] });
   }, []);
 
-  const handleBatchFolderPicked = useCallback(
-    (targetFolderId: string | null) => {
+  const handleBatchMove = useCallback(
+    (pickedFolderId: string | null) => {
       const ids = [...selectedIds];
-      setBatchBusy(true);
-      void batchMoveFiles(ids, targetFolderId).then((result) => {
-        setBatchBusy(false);
-        showBatchResultAlert('move', result.succeeded, result.failed);
-        exitSelection();
-      });
+      if (ids.length === 0) {
+        return;
+      }
+      const targetFolderId = pickedFolderId ?? BATCH_MOVE_UNFILED;
+      const targetName = pickedFolderId
+        ? (allFolders ?? []).find((f) => f.id === pickedFolderId)?.name ?? 'folder'
+        : 'Unfiled';
+
+      const rollback = optimisticallyRemove(ids);
+      exitSelection();
+
+      void requestBatchMove(ids, targetFolderId)
+        .then((result) => {
+          reconcile();
+          const moved = result.succeededIds.length;
+          const skipped = result.skippedIds.length;
+          if (skipped > 0) {
+            showToast(`Moved ${moved} · ${skipped} skipped`);
+          } else {
+            showToast(`Moved ${moved} to ${targetName}`);
+          }
+        })
+        .catch(() => {
+          rollback();
+          showToast('Move failed', 'Check your connection and try again');
+        });
     },
-    [exitSelection, selectedIds],
+    [allFolders, exitSelection, optimisticallyRemove, reconcile, selectedIds, showToast],
   );
 
   const runBatchDelete = useCallback(() => {
     const ids = [...selectedIds];
-    setBatchBusy(true);
-    void batchDeleteFiles(ids).then((result) => {
-      setBatchBusy(false);
-      showBatchResultAlert('delete', result.succeeded, result.failed);
-      exitSelection();
-    });
-  }, [exitSelection, selectedIds]);
+    if (ids.length === 0) {
+      return;
+    }
+    const rollback = optimisticallyRemove(ids);
+    exitSelection();
+
+    void requestBatchDelete(ids)
+      .then((result) => {
+        reconcile();
+        const deleted = result.succeededIds.length;
+        const skipped = result.skippedIds.length;
+        if (skipped > 0) {
+          showToast(`Deleted ${deleted} · ${skipped} skipped`);
+        } else {
+          showToast(`Deleted ${deleted}`);
+        }
+      })
+      .catch(() => {
+        rollback();
+        showToast('Delete failed', 'Check your connection and try again');
+      });
+  }, [exitSelection, optimisticallyRemove, reconcile, selectedIds, showToast]);
 
   const handleDeletePress = useCallback(() => {
     const count = selectedIds.size;
@@ -209,7 +296,7 @@ export function FolderDetailScreen({ navigation, route }: Props): React.ReactEle
     const noun = count === 1 ? 'item' : 'items';
     Alert.alert(
       `Delete ${count} ${noun}?`,
-      "This permanently removes them from your cloud. They'll stay in your camera roll.",
+      "They'll be removed from the cloud too. They stay in your camera roll.",
       [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Delete', style: 'destructive', onPress: runBatchDelete },
@@ -217,243 +304,304 @@ export function FolderDetailScreen({ navigation, route }: Props): React.ReactEle
     );
   }, [runBatchDelete, selectedIds.size]);
 
-  const selection = useMemo(
-    (): GridSelectionState => ({
-      isActive: isSelecting,
-      selectedIds,
-      onToggle: handleToggleSelect,
-      onLongPressFile: handleLongPressFile,
-    }),
-    [handleLongPressFile, handleToggleSelect, isSelecting, selectedIds],
-  );
+  const handleShare = useCallback(() => {
+    if (selectedFiles.length !== 1) {
+      return;
+    }
+    const url = viewUrlByFileId?.[selectedFiles[0].id]?.fullUrl;
+    if (!url) {
+      showToast("Can't share yet", 'This file is still preparing');
+      return;
+    }
+    void Share.share({ url }).catch(() => {
+      // User-cancelled or failed share — nothing to recover.
+    });
+  }, [selectedFiles, showToast, viewUrlByFileId]);
 
-  const showInitialLoading = isLoading && feedItems.length === 0;
-  const showEmpty = !isLoading && !isError && feedItems.length === 0;
-  const showError = isError && feedItems.length === 0;
-
-  const emptyMessage = isUnfiledView
-    ? 'No unfiled files'
-    : 'No files in this folder yet';
+  const showInitialLoading = isLoading && files.length === 0;
+  const showEmpty = !isLoading && !isError && files.length === 0;
+  const showError = isError && files.length === 0;
 
   const refreshControl = useMemo(
     () => (
       <RefreshControl
         refreshing={isRefetching}
         onRefresh={handleRefresh}
-        tintColor={colors.accentBlue}
-        colors={[colors.accentBlue]}
+        tintColor={theme.colors.accent}
+        colors={[theme.colors.accent]}
       />
     ),
     [handleRefresh, isRefetching],
   );
 
   return (
-    <LinearGradient
-      colors={[colors.background, colors.backgroundGradientBottom]}
-      start={{ x: 0.5, y: 0 }}
-      end={{ x: 0.5, y: 1 }}
-      style={styles.gradient}
-    >
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <View style={styles.headerRow}>
-          {!isSelecting ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Go back"
-              hitSlop={12}
-              onPress={() => navigation.goBack()}
-              style={({ pressed }) => [styles.backButton, pressed && styles.backPressed]}
-            >
-              <Ionicons name="chevron-back" size={28} color={colors.primaryNavy} />
-            </Pressable>
-          ) : (
-            <View style={styles.backButton} />
-          )}
-
-          {isSelecting ? (
-            <GridSelectionToolbar
-              selectedCount={selectedIds.size}
-              totalSelectable={selectableFileIds.length}
-              isBusy={batchBusy}
-              onCancel={exitSelection}
-              onSelectAll={handleSelectAll}
-              onDeselectAll={handleDeselectAll}
-              onMove={() => setPickerVisible(true)}
-              onDelete={handleDeletePress}
-            />
-          ) : (
-            <>
-              <Text style={styles.headerTitle} numberOfLines={1}>
-                {folderName}
-              </Text>
-              {selectableFileIds.length > 0 ? (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Select items"
-                  hitSlop={8}
-                  onPress={() => enterSelection()}
-                  style={({ pressed }) => [styles.selectButton, pressed && styles.backPressed]}
-                >
-                  <Text style={styles.selectLabel}>Select</Text>
-                </Pressable>
-              ) : (
-                <View style={styles.headerSpacer} />
-              )}
-            </>
-          )}
+    <View style={styles.root}>
+      <View style={[styles.header, { paddingTop: insets.top + 6 }]}>
+        <View style={styles.headerTopRow}>
+          <Pressable
+            onPress={() => navigation.goBack()}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel="Back to folders"
+            style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
+          >
+            <ChevronLeft size={18} color={theme.colors.accent} strokeWidth={2.4} />
+            <Text style={styles.backLabel}>Folders</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => (isSelecting ? exitSelection() : enterSelection())}
+            hitSlop={10}
+            accessibilityRole="button"
+            style={({ pressed }) => pressed && styles.pressed}
+          >
+            <Text style={styles.selectToggle}>{isSelecting ? 'Done' : 'Select'}</Text>
+          </Pressable>
         </View>
 
-        {showInitialLoading ? (
-          <View style={styles.centered}>
-            <ActivityIndicator size="large" color={colors.accentBlue} />
-          </View>
-        ) : null}
+        <DisplayText size={30} style={styles.title}>
+          {folderName}
+        </DisplayText>
 
-        {showError ? (
-          <View style={styles.centeredCard}>
-            <GlassCard>
-              <Text style={styles.errorTitle}>Could not load files</Text>
-              <Text style={styles.errorBody}>
-                {error instanceof Error ? error.message : 'Something went wrong.'}
-              </Text>
-              <Pressable
-                accessibilityRole="button"
-                onPress={handleRefresh}
-                style={({ pressed }) => [styles.retryButton, pressed && styles.retryPressed]}
-              >
-                <Text style={styles.retryLabel}>Tap to retry</Text>
-              </Pressable>
-            </GlassCard>
-          </View>
-        ) : null}
+        <Text style={styles.meta} numberOfLines={1}>
+          {counts.total} {counts.total === 1 ? 'item' : 'items'} · {counts.photos} photos,{' '}
+          {counts.videos} videos{'  ·  '}
+          {counts.notBacked === 0 ? (
+            <Text style={styles.metaOk}>✓ All backed up</Text>
+          ) : (
+            <Text style={styles.metaWarn}>{counts.notBacked} not backed up</Text>
+          )}
+        </Text>
 
-        {showEmpty ? (
-          <View style={styles.centeredCard}>
-            <GlassCard>
-              <View style={styles.emptyInner}>
-                <Ionicons name="document-outline" size={32} color={colors.mutedText} />
-                <Text style={styles.emptyTitle}>{emptyMessage}</Text>
-                {!isUnfiledView ? (
-                  <Text style={styles.emptyBody}>
-                    Files will appear here once you assign them to this folder
-                  </Text>
-                ) : (
-                  <Text style={styles.emptyBody}>
-                    Files not in any folder will appear here
-                  </Text>
-                )}
-              </View>
-            </GlassCard>
-          </View>
-        ) : null}
-
-        {!showInitialLoading && !showError && feedItems.length > 0 ? (
-          <MediaThumbnailGrid
-            items={feedItems}
-            viewUrlByFileId={viewUrlByFileId}
-            onPressFile={handlePressFile}
-            selection={selection}
-            contentPaddingBottom={listBottomPad}
-            refreshControl={refreshControl}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.chipsRow}
+        >
+          <FilterChip label={`All ${counts.total}`} active={filter === 'all'} onPress={() => setFilter('all')} />
+          <FilterChip label="Photos" active={filter === 'photos'} onPress={() => setFilter('photos')} />
+          <FilterChip label="Videos" active={filter === 'videos'} onPress={() => setFilter('videos')} />
+          <FilterChip
+            label="Not backed up"
+            active={filter === 'notBacked'}
+            onPress={() => setFilter('notBacked')}
           />
-        ) : null}
-      </SafeAreaView>
+        </ScrollView>
+      </View>
+
+      {showInitialLoading ? (
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={theme.colors.accent} />
+        </View>
+      ) : null}
+
+      {showError ? (
+        <View style={styles.centeredCard}>
+          <Card style={styles.errorCard}>
+            <Text style={styles.errorTitle}>Could not load files</Text>
+            <Text style={styles.errorBody}>
+              {error instanceof Error ? error.message : 'Something went wrong.'}
+            </Text>
+            <PillButton title="Try again" variant="secondary" height={44} onPress={handleRefresh} />
+          </Card>
+        </View>
+      ) : null}
+
+      {showEmpty ? (
+        <View style={styles.centeredCard}>
+          <Text style={styles.emptyTitle}>
+            {isUnfiledView ? 'No unfiled files' : 'No files in this folder yet'}
+          </Text>
+          <Text style={styles.emptyBody}>
+            {isUnfiledView
+              ? 'Files not in any folder will appear here.'
+              : 'Captures sent here will appear in this folder.'}
+          </Text>
+        </View>
+      ) : null}
+
+      {!showInitialLoading && !showError && files.length > 0 ? (
+        <FolderMediaGrid
+          files={filteredFiles}
+          viewUrlByFileId={viewUrlByFileId}
+          isSelecting={isSelecting}
+          selectedIds={selectedIds}
+          onPressFile={handlePressFile}
+          onToggle={handleToggleSelect}
+          onLongPressFile={handleLongPressFile}
+          contentPaddingBottom={insets.bottom + BOTTOM_PADDING}
+          refreshControl={refreshControl}
+        />
+      ) : null}
+
+      {isSelecting ? (
+        <SelectionTray
+          count={selectedIds.size}
+          canShare={canShare}
+          onSelectAll={handleSelectAll}
+          onMove={() => setPickerVisible(true)}
+          onShare={handleShare}
+          onDelete={handleDeletePress}
+        />
+      ) : null}
+
+      {toast ? <Toast title={toast.title} subtitle={toast.subtitle} /> : null}
 
       <FolderPickerSheet
         visible={pickerVisible}
         file={null}
         batchCount={selectedIds.size}
         onClose={() => setPickerVisible(false)}
-        onFolderPicked={handleBatchFolderPicked}
+        onFolderPicked={handleBatchMove}
       />
-    </LinearGradient>
+    </View>
   );
 }
 
-const styles = StyleSheet.create({
-  gradient: {
+function FilterChip({
+  label,
+  active,
+  onPress,
+}: {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+}): React.ReactElement {
+  const styles = useStyles();
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+      style={[styles.chip, active ? styles.chipActive : styles.chipInactive]}
+    >
+      <Text style={active ? styles.chipTextActive : styles.chipTextInactive}>{label}</Text>
+    </Pressable>
+  );
+}
+
+const useStyles = createThemedStyles((theme) => StyleSheet.create({
+  root: {
     flex: 1,
+    backgroundColor: theme.colors.bg,
   },
-  safeArea: {
-    flex: 1,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingTop: spacing.sm,
-    marginBottom: spacing.md,
-    paddingHorizontal: spacing.lg,
-    gap: spacing.sm,
-  },
-  backButton: {
-    paddingRight: spacing.sm,
-    width: 36,
-  },
-  backPressed: {
+  pressed: {
     opacity: 0.7,
   },
-  headerTitle: {
-    ...typography.h2,
-    color: colors.primaryNavy,
-    flex: 1,
+
+  // Header (sticky above the grid) --------------------------------------------
+  header: {
+    paddingHorizontal: 14,
+    paddingBottom: 10,
+    backgroundColor: theme.colors.glass,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.line,
   },
-  selectButton: {
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
   },
-  selectLabel: {
-    ...typography.bodySmall,
-    color: colors.accentBlue,
-    fontWeight: '600',
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    marginLeft: -4,
   },
-  headerSpacer: {
-    width: 56,
+  backLabel: {
+    fontFamily: theme.typography.body[600],
+    fontSize: 15.5,
+    color: theme.colors.accent,
   },
+  selectToggle: {
+    fontFamily: theme.typography.body[600],
+    fontSize: 15.5,
+    color: theme.colors.accent,
+  },
+  title: {
+    marginBottom: 4,
+  },
+  meta: {
+    fontFamily: theme.typography.body[400],
+    fontSize: 12.5,
+    color: theme.colors.muted,
+  },
+  metaOk: {
+    fontFamily: theme.typography.body[600],
+    color: theme.colors.okDeep,
+  },
+  metaWarn: {
+    fontFamily: theme.typography.body[600],
+    color: theme.colors.warn,
+  },
+  chipsRow: {
+    gap: 8,
+    paddingTop: 12,
+    paddingRight: 4,
+  },
+  chip: {
+    height: 32,
+    paddingHorizontal: 14,
+    borderRadius: theme.radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chipActive: {
+    backgroundColor: theme.colors.accent,
+  },
+  chipInactive: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: theme.colors.line2,
+  },
+  chipTextActive: {
+    fontFamily: theme.typography.body[600],
+    fontSize: 12.5,
+    color: theme.colors.white,
+  },
+  chipTextInactive: {
+    fontFamily: theme.typography.body[600],
+    fontSize: 12.5,
+    color: theme.colors.muted,
+  },
+
+  // States --------------------------------------------------------------------
   centered: {
-    paddingVertical: spacing.xxl,
+    paddingVertical: 40,
     alignItems: 'center',
   },
   centeredCard: {
-    paddingTop: spacing.md,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: 14,
+    paddingTop: 24,
+    alignItems: 'center',
+    gap: 6,
+  },
+  errorCard: {
+    alignSelf: 'stretch',
+    padding: 16,
+    gap: 10,
   },
   errorTitle: {
-    ...typography.h2,
-    color: colors.primaryNavy,
-    marginBottom: spacing.sm,
+    fontFamily: theme.typography.body[700],
+    fontSize: 15.5,
+    color: theme.colors.text,
   },
   errorBody: {
-    ...typography.body,
-    color: colors.mutedText,
-    marginBottom: spacing.md,
-  },
-  retryButton: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: 12,
-    backgroundColor: colors.accentBlueMuted,
-  },
-  retryPressed: {
-    opacity: 0.85,
-  },
-  retryLabel: {
-    ...typography.bodySmall,
-    color: colors.accentBlue,
-    fontWeight: '600',
-  },
-  emptyInner: {
-    alignItems: 'center',
-    gap: spacing.sm,
+    fontFamily: theme.typography.body[400],
+    fontSize: 13.5,
+    color: theme.colors.muted,
   },
   emptyTitle: {
-    ...typography.h2,
-    color: colors.primaryNavy,
+    fontFamily: theme.typography.body[700],
+    fontSize: 16,
+    color: theme.colors.text,
     textAlign: 'center',
+    marginTop: 12,
   },
   emptyBody: {
-    ...typography.body,
-    color: colors.mutedText,
+    fontFamily: theme.typography.body[400],
+    fontSize: 13.5,
+    color: theme.colors.muted,
     textAlign: 'center',
   },
-});
+}));

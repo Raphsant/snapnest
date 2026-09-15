@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 
+import { ScreenTransition } from '../components/ScreenTransition';
 import { ConfirmSignUpScreen } from '../screens/auth/ConfirmSignUpScreen';
 import { LoginScreen } from '../screens/auth/LoginScreen';
 import { SignUpScreen } from '../screens/auth/SignUpScreen';
@@ -40,15 +41,19 @@ export function AuthFlow() {
     [],
   );
 
-  switch (route.screen) {
-    case 'SignUp':
-      return <SignUpScreen navigation={navigation} route={{ params: undefined }} />;
-    case 'ConfirmSignUp':
-      return (
-        <ConfirmSignUpScreen navigation={navigation} route={{ params: route.params }} />
-      );
-    case 'Login':
-    default:
-      return <LoginScreen navigation={navigation} route={{ params: route.params }} />;
-  }
+  const screen =
+    route.screen === 'SignUp' ? (
+      <SignUpScreen navigation={navigation} route={{ params: undefined }} />
+    ) : route.screen === 'ConfirmSignUp' ? (
+      <ConfirmSignUpScreen navigation={navigation} route={{ params: route.params }} />
+    ) : (
+      <LoginScreen navigation={navigation} route={{ params: route.params }} />
+    );
+
+  // Lateral peers — fade, not a hierarchical push.
+  return (
+    <ScreenTransition transitionKey={route.screen} kind="fade">
+      {screen}
+    </ScreenTransition>
+  );
 }

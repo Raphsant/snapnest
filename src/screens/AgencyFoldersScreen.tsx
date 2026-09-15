@@ -1,88 +1,42 @@
 import React, { useCallback, useMemo } from 'react';
-import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import {
-  ActivityIndicator,
-  FlatList,
-  type ListRenderItem,
-  Pressable,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Camera, ChevronRight, Folder as FolderIcon } from 'lucide-react-native';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 
-import { GlassCard } from '../components/GlassCard';
+import { Card } from '../components/ui/Card';
+import { DisplayText } from '../components/ui/DisplayText';
+import { IconTile } from '../components/ui/IconTile';
+import { PillButton } from '../components/ui/PillButton';
+import { SectionLabel } from '../components/ui/SectionLabel';
 import { useAgencyFolders } from '../hooks/useAgencyFolders';
 import { useMe } from '../hooks/useMe';
 import { useRefreshOnFocus } from '../hooks/useRefreshOnFocus';
 import type { AgencyFolderListScreenProps } from '../navigation/agencyTypes';
+import type { MainTabParamList } from '../navigation/mainTabTypes';
 import type { AgencyFolder } from '../services/agencyService';
-import { colors } from '../theme/colors';
-import { spacing } from '../theme/spacing';
-import { typography } from '../theme/typography';
+import { createThemedStyles } from '../theme/createThemedStyles';
+import { useTheme } from '../theme/tokens';
 
-/** Matches other tab screens — clears the floating GlassTabBar. */
-const TAB_BAR_BOTTOM_OFFSET = 24;
-const TAB_BAR_OUTER_HEIGHT = 72 + 32;
+const BOTTOM_PADDING = 150;
 
 type Props = AgencyFolderListScreenProps;
 
-function AgencyFolderRow({
-  folder,
-  onPress,
-}: {
-  folder: AgencyFolder;
-  onPress: () => void;
-}): React.ReactElement {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={onPress}
-      style={({ pressed }) => [pressed && styles.rowPressed]}
-    >
-      <GlassCard intensity={64} style={styles.card}>
-        <View style={styles.row}>
-          <View style={styles.iconSquare}>
-            <Ionicons name="folder" size={22} color={colors.primaryNavy} />
-          </View>
-          <View style={styles.middle}>
-            <Text style={styles.rowName} numberOfLines={1}>
-              {folder.name}
-            </Text>
-            <Text style={styles.rowCount}>
-              {folder.fileCount} {folder.fileCount === 1 ? 'file' : 'files'}
-            </Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={colors.tabInactive} />
-        </View>
-      </GlassCard>
-    </Pressable>
-  );
-}
-
 export function AgencyFoldersScreen({ navigation }: Props): React.ReactElement {
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
+  const styles = useStyles();
+  const tabNavigation = useNavigation<BottomTabNavigationProp<MainTabParamList>>();
   const meQuery = useMe();
+  // The screen has always assumed a single membership; keep that assumption.
   const membership = meQuery.data?.memberships[0];
   const agencyId = membership?.agencyId;
+  const agencyName = membership?.agencyName ?? 'Agency';
+  const initial = (agencyName[0] ?? 'A').toUpperCase();
 
-  const {
-    data: folders,
-    isLoading,
-    isError,
-    error,
-    refetch,
-    isRefetching,
-  } = useAgencyFolders(agencyId);
-
-  // Agency folder counts move without any local upload — pipeline clip deliveries
-  // happen server-side, so there is no client event to invalidate on. Focus
-  // refetch is the only thing that surfaces a delivery without pull-to-refresh.
+  const { data: folders, isLoading, isError, error, refetch, isRefetching } = useAgencyFolders(agencyId);
   useRefreshOnFocus(refetch);
-
-  const listBottomPad = insets.bottom + TAB_BAR_BOTTOM_OFFSET + TAB_BAR_OUTER_HEIGHT + spacing.md;
 
   const folderList = useMemo<AgencyFolder[]>(() => folders ?? [], [folders]);
   const showSpinner = isLoading && folders === undefined;
@@ -98,188 +52,243 @@ export function AgencyFoldersScreen({ navigation }: Props): React.ReactElement {
       if (agencyId === undefined) {
         return;
       }
-      navigation.navigate('AgencyFolderDetail', {
-        folderId: folder.id,
-        folderName: folder.name,
-        agencyId,
-      });
+      navigation.navigate('AgencyFolderDetail', { folderId: folder.id, folderName: folder.name, agencyId });
     },
     [agencyId, navigation],
   );
 
-  const keyExtractor = useCallback((folder: AgencyFolder): string => folder.id, []);
-
-  const renderItem: ListRenderItem<AgencyFolder> = useCallback(
-    ({ item }) => <AgencyFolderRow folder={item} onPress={() => openFolder(item)} />,
-    [openFolder],
-  );
+  const goToCamera = useCallback(() => {
+    // TODO(stretch Submit flow): the camera destination targets personal folders
+    // only (no agency concept), so this just opens the camera without preselecting.
+    tabNavigation.navigate('Camera');
+  }, [tabNavigation]);
 
   const refreshControl = useMemo(
     () => (
       <RefreshControl
         refreshing={isRefetching}
         onRefresh={handleRefresh}
-        tintColor={colors.accentBlue}
-        colors={[colors.accentBlue]}
+        tintColor={theme.colors.accent}
+        colors={[theme.colors.accent]}
       />
     ),
     [handleRefresh, isRefetching],
   );
 
-  const listFooter = useMemo(() => {
-    if (showSpinner) {
-      return (
-        <View style={styles.footerSpinner}>
-          <ActivityIndicator size="small" color={colors.accentBlue} />
-        </View>
-      );
-    }
-    if (showEmpty) {
-      return <Text style={styles.emptyHint}>No workspace folders yet</Text>;
-    }
-    return null;
-  }, [showEmpty, showSpinner]);
-
   return (
-    <LinearGradient
-      colors={[colors.background, colors.backgroundGradientBottom]}
-      start={{ x: 0.5, y: 0 }}
-      end={{ x: 0.5, y: 1 }}
-      style={styles.gradient}
-    >
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
+    <View style={[styles.root, { paddingTop: insets.top }]}>
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + BOTTOM_PADDING }]}
+        refreshControl={refreshControl}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.header}>
-          <Text style={styles.title}>{membership?.agencyName ?? 'Agency'}</Text>
-          <Text style={styles.subtitle}>Agency workspace</Text>
+          <View style={styles.badge}>
+            <Text style={styles.badgeInitial}>{initial}</Text>
+          </View>
+          <View style={styles.headerText}>
+            <Text style={styles.kicker}>AGENCY WORKSPACE</Text>
+            <DisplayText size={26}>{agencyName}</DisplayText>
+          </View>
         </View>
+
+        <Card radius="lg" style={styles.infoCard}>
+          <Text style={styles.infoTitle}>Anything you drop here reaches the editors instantly</Text>
+          <Text style={styles.infoSub}>
+            They work in the {agencyName} dashboard — you never have to send a link again.
+          </Text>
+        </Card>
+
+        <SectionLabel style={styles.sectionLabel}>Intake folders</SectionLabel>
 
         {showError ? (
-          <View style={styles.errorCard}>
-            <GlassCard>
-              <Text style={styles.errorTitle}>Could not load workspace</Text>
-              <Text style={styles.errorBody}>
-                {error instanceof Error ? error.message : 'Something went wrong.'}
-              </Text>
-              <Pressable
-                accessibilityRole="button"
-                onPress={handleRefresh}
-                style={({ pressed }) => [styles.retryButton, pressed && styles.retryPressed]}
-              >
-                <Text style={styles.retryLabel}>Tap to retry</Text>
-              </Pressable>
-            </GlassCard>
+          <Card style={styles.errorCard}>
+            <Text style={styles.errorTitle}>Could not load workspace</Text>
+            <Text style={styles.errorBody}>
+              {error instanceof Error ? error.message : 'Something went wrong.'}
+            </Text>
+            <PillButton title="Try again" variant="secondary" height={44} onPress={handleRefresh} />
+          </Card>
+        ) : showSpinner ? (
+          <View style={styles.spinnerBox}>
+            <ActivityIndicator size="small" color={theme.colors.accent} />
           </View>
-        ) : null}
+        ) : showEmpty ? (
+          <Text style={styles.inlineHint}>No workspace folders yet.</Text>
+        ) : (
+          folderList.map((folder) => (
+            <Pressable
+              key={folder.id}
+              onPress={() => openFolder(folder)}
+              accessibilityRole="button"
+              accessibilityLabel={folder.name}
+              style={({ pressed }) => pressed && styles.pressed}
+            >
+              <Card shadow style={styles.folderCard}>
+                <View style={styles.row}>
+                  {/* No latest-file thumbnail on the agency folder list — fallback tile. */}
+                  <IconTile icon={FolderIcon} tone="neutral" size={44} />
+                  <View style={styles.rowMiddle}>
+                    <Text style={styles.rowName} numberOfLines={1}>{folder.name}</Text>
+                    <Text style={styles.rowSub} numberOfLines={1}>
+                      {folder.fileCount === 0
+                        ? 'Empty · waiting on you'
+                        : `${folder.fileCount} ${folder.fileCount === 1 ? 'file' : 'files'}`}
+                    </Text>
+                  </View>
+                  {/* No open/closed status in the data — all intake folders read as OPEN. */}
+                  <View style={styles.openBadge}>
+                    <Text style={styles.openBadgeText}>OPEN</Text>
+                  </View>
+                  <ChevronRight size={20} color={theme.colors.faint} strokeWidth={2} />
+                </View>
+              </Card>
+            </Pressable>
+          ))
+        )}
 
-        <FlatList
-          data={folderList}
-          keyExtractor={keyExtractor}
-          renderItem={renderItem}
-          ListFooterComponent={listFooter}
-          contentContainerStyle={[styles.listContent, { paddingBottom: listBottomPad }]}
-          refreshControl={refreshControl}
-          showsVerticalScrollIndicator={false}
-        />
-      </SafeAreaView>
-    </LinearGradient>
+        <View style={styles.ctaWrap}>
+          <PillButton title="Shoot straight into a folder" icon={Camera} onPress={goToCamera} />
+          <Text style={styles.ctaNote}>Read-only for you — editors decide what ships.</Text>
+        </View>
+      </ScrollView>
+    </View>
   );
 }
 
-const styles = StyleSheet.create({
-  gradient: {
+const useStyles = createThemedStyles((theme) => StyleSheet.create({
+  root: {
     flex: 1,
+    backgroundColor: theme.colors.bg,
   },
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: spacing.lg,
+  content: {
+    paddingHorizontal: 18,
+    paddingTop: 8,
+  },
+  pressed: {
+    opacity: 0.85,
   },
   header: {
-    paddingTop: spacing.md,
-    marginBottom: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 18,
   },
-  title: {
-    ...typography.h1,
-    color: colors.primaryNavy,
+  badge: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: theme.colors.accentDeep,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  subtitle: {
-    ...typography.body,
-    color: colors.mutedText,
-    marginTop: spacing.xs,
+  badgeInitial: {
+    fontFamily: theme.typography.display,
+    fontSize: 20,
+    color: theme.colors.card,
   },
-  listContent: {
-    flexGrow: 1,
+  headerText: {
+    flex: 1,
+    minWidth: 0,
   },
-  card: {
-    marginVertical: spacing.xs,
+  kicker: {
+    fontFamily: theme.typography.body[500],
+    fontSize: 12,
+    letterSpacing: 0.48,
+    color: theme.colors.muted,
+    marginBottom: 2,
+  },
+  infoCard: {
+    padding: 16,
+    backgroundColor: theme.colors.accentSoft,
+    borderColor: theme.colors.accentLine,
+  },
+  infoTitle: {
+    fontFamily: theme.typography.body[600],
+    fontSize: 14,
+    lineHeight: 19,
+    color: theme.colors.accentDeep,
+  },
+  infoSub: {
+    marginTop: 6,
+    fontFamily: theme.typography.body[400],
+    fontSize: 12.5,
+    lineHeight: 17,
+    color: theme.colors.accentDeep,
+    opacity: 0.8,
+  },
+  sectionLabel: {
+    marginTop: 22,
+    marginBottom: 10,
+  },
+  spinnerBox: {
+    paddingVertical: 24,
+    alignItems: 'center',
+  },
+  inlineHint: {
+    fontFamily: theme.typography.body[400],
+    fontSize: 13.5,
+    color: theme.colors.faint,
+    paddingVertical: 8,
+  },
+  folderCard: {
+    padding: 12,
+    marginBottom: 10,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: spacing.xs,
+    gap: 12,
   },
-  rowPressed: {
-    opacity: 0.9,
-  },
-  iconSquare: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing.md,
-    backgroundColor: colors.glassSurface,
-  },
-  middle: {
+  rowMiddle: {
     flex: 1,
     minWidth: 0,
   },
   rowName: {
-    ...typography.body,
-    fontWeight: '600',
-    color: colors.primaryNavy,
+    fontFamily: theme.typography.body[600],
+    fontSize: 15.5,
+    color: theme.colors.text,
   },
-  rowCount: {
-    ...typography.bodySmall,
-    color: colors.mutedText,
-    marginTop: 2,
+  rowSub: {
+    marginTop: 3,
+    fontFamily: theme.typography.body[400],
+    fontSize: 12.5,
+    color: theme.colors.muted,
   },
-  footerSpinner: {
-    paddingVertical: spacing.lg,
-    alignItems: 'center',
+  openBadge: {
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+    borderRadius: theme.radius.pill,
+    backgroundColor: theme.colors.okSoft,
   },
-  emptyHint: {
-    ...typography.body,
-    color: colors.mutedText,
-    textAlign: 'center',
-    paddingTop: spacing.md,
-    paddingHorizontal: spacing.lg,
+  openBadgeText: {
+    fontFamily: theme.typography.body[700],
+    fontSize: 10.5,
+    letterSpacing: 0.4,
+    color: theme.colors.okDeep,
   },
   errorCard: {
-    marginBottom: spacing.md,
+    padding: 16,
+    gap: 10,
   },
   errorTitle: {
-    ...typography.h2,
-    color: colors.primaryNavy,
-    marginBottom: spacing.sm,
+    fontFamily: theme.typography.body[700],
+    fontSize: 15.5,
+    color: theme.colors.text,
   },
   errorBody: {
-    ...typography.body,
-    color: colors.mutedText,
-    marginBottom: spacing.md,
+    fontFamily: theme.typography.body[400],
+    fontSize: 13.5,
+    color: theme.colors.muted,
   },
-  retryButton: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: 12,
-    backgroundColor: colors.accentBlueMuted,
+  ctaWrap: {
+    marginTop: 22,
+    gap: 10,
   },
-  retryPressed: {
-    opacity: 0.85,
+  ctaNote: {
+    fontFamily: theme.typography.body[400],
+    fontSize: 12,
+    color: theme.colors.faint,
+    textAlign: 'center',
   },
-  retryLabel: {
-    ...typography.bodySmall,
-    color: colors.accentBlue,
-    fontWeight: '600',
-  },
-});
+}));

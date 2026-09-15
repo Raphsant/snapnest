@@ -15,6 +15,13 @@ export type UploadQueueItem = {
   errorMessage: string | null;
   backendFileId: string | null;
   backendUploadId: string | null;
+  /**
+   * Server-assigned human name (Prompt A), written by uploadManager when the
+   * upload job is created. Optional: absent until the presign returns (and the
+   * store's addItem never sets it), null if the backend supplies none — callers
+   * fall back to `fileName`.
+   */
+  displayName?: string | null;
   createdAt: number;
   /** Local URI of the pre-generated JPEG thumbnail, or null if none was made. */
   thumbnailUri: string | null;
