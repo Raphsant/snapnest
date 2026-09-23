@@ -18,11 +18,12 @@ import { useFolders } from '../hooks/useFolders';
 import { useMoveFile } from '../hooks/useMoveFile';
 import type { Folder } from '../services/foldersService';
 import type { MediaFile } from '../services/filesService';
-import { colors } from '../theme/colors';
-import { spacing } from '../theme/spacing';
-import { typography } from '../theme/typography';
+import { createThemedStyles } from '../theme/createThemedStyles';
+import { useTheme } from '../theme/tokens';
 
 const UNFILED_ID = '__unfiled__';
+/** Same scrim as ui/BottomSheet: the `darkBg` token at 45%, on its own layer. */
+const SCRIM_ALPHA = 0.45;
 
 type FolderPickerSheetProps = {
   visible: boolean;
@@ -67,6 +68,8 @@ export function FolderPickerSheet({
   batchCount,
 }: FolderPickerSheetProps): React.ReactElement {
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
+  const styles = useStyles();
   const foldersQuery = useFolders();
   const { mutate, isPending, reset, variables } = useMoveFile();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -145,8 +148,11 @@ export function FolderPickerSheet({
     ({ item }: { item: PickerRow }) => {
       const isUnfiled = item.kind === 'unfiled';
       const targetFolderId = isUnfiled ? null : item.folder.id;
+      // Keyed on `file`, not on batch mode: the viewer opens this sheet in batch
+      // mode (it moves its one id through the batch endpoint) yet still passes
+      // the open file, and should keep the current-folder check. FolderDetail's
+      // multi-select passes no file, so nothing is marked current there.
       const isCurrent =
-        !isBatchMode &&
         file !== null &&
         ((isUnfiled && file.folderId === null) ||
           (!isUnfiled && file.folderId === item.folder.id));
@@ -174,7 +180,7 @@ export function FolderPickerSheet({
           <Ionicons
             name={isUnfiled ? 'albums-outline' : 'folder-outline'}
             size={22}
-            color={isCurrent ? colors.accentBlue : colors.primaryNavy}
+            color={isCurrent ? theme.colors.accent : theme.colors.text}
           />
           <View style={styles.rowText}>
             <Text style={[styles.rowTitle, isCurrent && styles.rowTitleCurrent]} numberOfLines={1}>
@@ -185,16 +191,16 @@ export function FolderPickerSheet({
             ) : null}
           </View>
           {isLoadingThis ? (
-            <ActivityIndicator size="small" color={colors.accentBlue} />
+            <ActivityIndicator size="small" color={theme.colors.accent} />
           ) : isCurrent ? (
-            <Ionicons name="checkmark" size={22} color={colors.accentBlue} />
+            <Ionicons name="checkmark" size={22} color={theme.colors.accent} />
           ) : (
             <View style={styles.rowSpacer} />
           )}
         </Pressable>
       );
     },
-    [file, handleSelect, isBatchMode, isPending, variables],
+    [file, handleSelect, isBatchMode, isPending, styles, theme, variables],
   );
 
   const keyExtractor = useCallback((item: PickerRow): string => {
@@ -216,14 +222,16 @@ export function FolderPickerSheet({
         />
       </View>
     );
-  }, [foldersQuery.isError, foldersQuery.isLoading, hasUserFolders, isPending]);
+  }, [foldersQuery.isError, foldersQuery.isLoading, hasUserFolders, isPending, styles]);
 
   return (
     <>
       <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={handleClose}>
+        {/* Scrim is its own layer — `darkBg` at 45%, as in ui/BottomSheet. */}
+        <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.scrim]} />
         <Pressable style={styles.backdrop} onPress={handleClose}>
           <Pressable
-            style={[styles.sheet, { paddingBottom: insets.bottom + spacing.md }]}
+            style={[styles.sheet, { paddingBottom: insets.bottom + 12 }]}
             onPress={(e) => e.stopPropagation()}
           >
             <View style={styles.grabber} />
@@ -233,7 +241,7 @@ export function FolderPickerSheet({
                 {batchCount} {batchCount === 1 ? 'item' : 'items'}
               </Text>
             ) : null}
-            {!isBatchMode && file !== null ? (
+            {file !== null ? (
               <Text style={styles.subtitle} numberOfLines={1}>
                 {file.fileName}
               </Text>
@@ -241,7 +249,7 @@ export function FolderPickerSheet({
 
             {foldersQuery.isLoading ? (
               <View style={styles.loadingBox}>
-                <ActivityIndicator size="large" color={colors.accentBlue} />
+                <ActivityIndicator size="large" color={theme.colors.accent} />
               </View>
             ) : null}
 
@@ -283,37 +291,42 @@ export function FolderPickerSheet({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createThemedStyles((t) => StyleSheet.create({
+  scrim: {
+    backgroundColor: t.colors.darkBg,
+    opacity: SCRIM_ALPHA,
+  },
   backdrop: {
     flex: 1,
-    backgroundColor: colors.modalBackdrop,
     justifyContent: 'flex-end',
   },
   sheet: {
     maxHeight: '70%',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    backgroundColor: colors.card,
-    paddingTop: spacing.sm,
-    paddingHorizontal: spacing.lg,
+    backgroundColor: t.colors.card,
+    paddingTop: 8,
+    paddingHorizontal: 16,
   },
   grabber: {
     alignSelf: 'center',
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: colors.border,
-    marginBottom: spacing.md,
+    backgroundColor: t.colors.line,
+    marginBottom: 12,
   },
   title: {
-    ...typography.h2,
-    color: colors.primaryNavy,
-    marginBottom: spacing.xs,
+    fontFamily: t.typography.body[600],
+    fontSize: 22,
+    color: t.colors.text,
+    marginBottom: 4,
   },
   subtitle: {
-    ...typography.bodySmall,
-    color: colors.mutedText,
-    marginBottom: spacing.md,
+    fontFamily: t.typography.body[400],
+    fontSize: 14,
+    color: t.colors.muted,
+    marginBottom: 12,
   },
   list: {
     maxHeight: 320,
@@ -321,73 +334,76 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.sm,
+    gap: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
     borderRadius: 12,
   },
   rowPressed: {
-    backgroundColor: colors.accentBlueMuted,
+    backgroundColor: t.colors.card2,
   },
   rowCurrent: {
-    backgroundColor: colors.accentBlueMuted,
+    backgroundColor: t.colors.accentSoft,
   },
   rowText: {
     flex: 1,
     minWidth: 0,
   },
   rowTitle: {
-    ...typography.body,
-    color: colors.primaryNavy,
-    fontWeight: '600',
+    fontFamily: t.typography.body[600],
+    fontSize: 16,
+    color: t.colors.text,
   },
   rowTitleCurrent: {
-    color: colors.accentBlue,
+    color: t.colors.accent,
   },
   rowSubtitle: {
-    ...typography.bodySmall,
-    color: colors.mutedText,
+    fontFamily: t.typography.body[400],
+    fontSize: 14,
+    color: t.colors.muted,
     marginTop: 2,
   },
   rowSpacer: {
     width: 22,
   },
   loadingBox: {
-    paddingVertical: spacing.xxl,
+    paddingVertical: 24,
     alignItems: 'center',
   },
   emptyBox: {
     alignItems: 'center',
-    paddingTop: spacing.md,
-    paddingBottom: spacing.lg,
-    paddingHorizontal: spacing.sm,
-    gap: spacing.md,
+    paddingTop: 12,
+    paddingBottom: 16,
+    paddingHorizontal: 8,
+    gap: 12,
   },
   emptyText: {
-    ...typography.body,
-    color: colors.mutedText,
+    fontFamily: t.typography.body[400],
+    fontSize: 16,
+    color: t.colors.muted,
     textAlign: 'center',
   },
   createButton: {
     alignSelf: 'stretch',
   },
   errorText: {
-    ...typography.bodySmall,
-    color: colors.error,
-    marginTop: spacing.sm,
-    marginBottom: spacing.sm,
+    fontFamily: t.typography.body[400],
+    fontSize: 14,
+    color: t.colors.danger,
+    marginTop: 8,
+    marginBottom: 8,
   },
   cancelButton: {
     alignItems: 'center',
-    paddingVertical: spacing.md,
-    marginTop: spacing.sm,
+    paddingVertical: 12,
+    marginTop: 8,
   },
   cancelPressed: {
     opacity: 0.75,
   },
   cancelLabel: {
-    ...typography.body,
-    color: colors.mutedText,
-    fontWeight: '600',
+    fontFamily: t.typography.body[600],
+    fontSize: 16,
+    color: t.colors.muted,
   },
-});
+}));

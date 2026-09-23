@@ -1,160 +1,147 @@
-import React, { useCallback } from 'react';
-import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import React from 'react';
+import { Check } from 'lucide-react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { GlassCard } from '../components/GlassCard';
-import { colors } from '../theme/colors';
-import { spacing } from '../theme/spacing';
-import { typography } from '../theme/typography';
+import { DisplayText } from '../components/ui/DisplayText';
+import { createThemedStyles } from '../theme/createThemedStyles';
+import { useTheme } from '../theme/tokens';
 
-/** Matches other tab screens — clears the floating GlassTabBar. */
-const TAB_BAR_BOTTOM_OFFSET = 24;
-const TAB_BAR_OUTER_HEIGHT = 72 + 32;
+const BOTTOM_PADDING = 150;
 
-const FEATURE_BULLETS: readonly string[] = [
-  'Feature bullet placeholder one',
-  'Feature bullet placeholder two',
-  'Feature bullet placeholder three',
-  'Feature bullet placeholder four',
+const FEATURES: readonly string[] = [
+  'Unlimited intake folders',
+  'Editors pull originals straight from the dashboard',
+  'Reshoot requests land as notifications',
+  'Shared storage across your team',
 ];
 
 /**
- * Shown in the Agency tab when /me returns no memberships.
- * All copy is intentionally placeholder — no marketing text or real prices yet.
+ * Shown in the Agency tab when /me returns no memberships. Informational only:
+ * no pricing (billing is stretch) and no join/invite buttons (invites are
+ * backend-driven — the tab appears when an agency adds your email).
  */
 export function AgencyUpsellScreen(): React.ReactElement {
   const insets = useSafeAreaInsets();
-
-  const handleCtaPress = useCallback((): void => {
-    // Inert by design — purchase / join flow not implemented yet.
-  }, []);
-
-  const bottomPad = insets.bottom + TAB_BAR_BOTTOM_OFFSET + TAB_BAR_OUTER_HEIGHT;
+  const theme = useTheme();
+  const styles = useStyles();
 
   return (
-    <LinearGradient
-      colors={[colors.background, colors.backgroundGradientBottom]}
-      start={{ x: 0.5, y: 0 }}
-      end={{ x: 0.5, y: 1 }}
-      style={styles.gradient}
-    >
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <View style={[styles.content, { paddingBottom: bottomPad }]}>
-          <View style={styles.intro}>
-            <Text style={styles.headline}>Headline placeholder</Text>
-            <Text style={styles.bodyCopy}>
-              Body copy placeholder — agency features unlock when you join an agency.
-            </Text>
-          </View>
+    <View style={[styles.root, { paddingTop: insets.top }]}>
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + BOTTOM_PADDING }]}
+        showsVerticalScrollIndicator={false}
+      >
+        <DisplayText size={30}>Hand the editing to someone else</DisplayText>
+        <Text style={styles.intro}>
+          Bring an editing agency into SnapNest and hand off the busywork. They pull your
+          originals, cut, and deliver — you just keep shooting.
+        </Text>
 
-          <GlassCard style={styles.pricingCard}>
-            <Text style={styles.planName}>Plan name placeholder</Text>
-            <View style={styles.priceRow}>
-              <Text style={styles.price}>$—</Text>
-              <Text style={styles.priceUnit}>/mo</Text>
-            </View>
-
-            <View style={styles.bulletList}>
-              {FEATURE_BULLETS.map((bullet) => (
-                <View key={bullet} style={styles.bulletRow}>
-                  <Ionicons name="checkmark-circle" size={20} color={colors.success} />
-                  <Text style={styles.bulletText}>{bullet}</Text>
+        <View style={styles.featureShadow}>
+          <View style={styles.featureCard}>
+            <View style={styles.decoCircle} />
+            {FEATURES.map((feature) => (
+              <View key={feature} style={styles.featureRow}>
+                <View style={styles.check}>
+                  <Check size={13} color={theme.colors.okDeep} strokeWidth={3} />
                 </View>
-              ))}
-            </View>
-
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="CTA placeholder"
-              onPress={handleCtaPress}
-              style={({ pressed }) => [styles.ctaButton, pressed && styles.ctaPressed]}
-            >
-              <Text style={styles.ctaLabel}>CTA placeholder</Text>
-            </Pressable>
-          </GlassCard>
+                <Text style={styles.featureText}>{feature}</Text>
+              </View>
+            ))}
+          </View>
         </View>
-      </SafeAreaView>
-    </LinearGradient>
+
+        <View style={styles.inviteCard}>
+          <Text style={styles.inviteTitle}>Already working with an agency?</Text>
+          <Text style={styles.inviteSub}>
+            Ask them for an invite — the tab appears the moment they add your email.
+          </Text>
+        </View>
+      </ScrollView>
+    </View>
   );
 }
 
-const styles = StyleSheet.create({
-  gradient: {
+const useStyles = createThemedStyles((theme) => StyleSheet.create({
+  root: {
     flex: 1,
-  },
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: spacing.lg,
+    backgroundColor: theme.colors.bg,
   },
   content: {
-    flex: 1,
-    justifyContent: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 16,
   },
   intro: {
-    marginBottom: spacing.xl,
+    marginTop: 10,
+    marginBottom: 28,
+    fontFamily: theme.typography.body[400],
+    fontSize: 15,
+    lineHeight: 22,
+    color: theme.colors.muted,
   },
-  headline: {
-    ...typography.h1,
-    color: colors.primaryNavy,
-    textAlign: 'center',
+  // Shadow layer (no overflow) wrapping the clipped surface, so the decorative
+  // circle can be clipped without killing the card shadow on iOS.
+  featureShadow: {
+    borderRadius: theme.radius.lg,
+    backgroundColor: theme.colors.card,
+    ...theme.shadows.sm,
   },
-  bodyCopy: {
-    ...typography.body,
-    color: colors.mutedText,
-    textAlign: 'center',
-    marginTop: spacing.sm,
-    paddingHorizontal: spacing.md,
+  featureCard: {
+    borderRadius: theme.radius.lg,
+    overflow: 'hidden',
+    backgroundColor: theme.colors.card,
+    borderWidth: 1,
+    borderColor: theme.colors.line,
+    padding: 20,
+    gap: 16,
   },
-  pricingCard: {
-    marginHorizontal: 0,
+  decoCircle: {
+    position: 'absolute',
+    top: -36,
+    right: -36,
+    width: 120,
+    height: 120,
+    borderRadius: theme.radius.pill,
+    backgroundColor: theme.colors.accentSoft,
   },
-  planName: {
-    ...typography.h2,
-    color: colors.primaryNavy,
-  },
-  priceRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    marginTop: spacing.xs,
-    marginBottom: spacing.lg,
-  },
-  price: {
-    ...typography.h1,
-    color: colors.accentBlue,
-  },
-  priceUnit: {
-    ...typography.body,
-    color: colors.mutedText,
-    marginLeft: spacing.xs,
-  },
-  bulletList: {
-    gap: spacing.sm,
-    marginBottom: spacing.xl,
-  },
-  bulletRow: {
+  featureRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: 12,
   },
-  bulletText: {
-    ...typography.body,
-    color: colors.primaryNavy,
-    flex: 1,
-  },
-  ctaButton: {
+  check: {
+    width: 24,
+    height: 24,
+    borderRadius: theme.radius.pill,
+    backgroundColor: theme.colors.okSoft,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: spacing.md,
-    borderRadius: 12,
-    backgroundColor: colors.accentBlue,
   },
-  ctaPressed: {
-    opacity: 0.88,
+  featureText: {
+    flex: 1,
+    fontFamily: theme.typography.body[500],
+    fontSize: 14.5,
+    color: theme.colors.text,
   },
-  ctaLabel: {
-    ...typography.button,
-    color: colors.card,
+  inviteCard: {
+    marginTop: 20,
+    padding: 16,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: theme.colors.line2,
   },
-});
+  inviteTitle: {
+    fontFamily: theme.typography.body[600],
+    fontSize: 14,
+    color: theme.colors.text,
+  },
+  inviteSub: {
+    marginTop: 4,
+    fontFamily: theme.typography.body[400],
+    fontSize: 12.5,
+    lineHeight: 18,
+    color: theme.colors.muted,
+  },
+}));

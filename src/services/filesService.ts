@@ -21,6 +21,11 @@ export type MediaFile = {
   fileType: MediaFileType;
   source: MediaFileSource;
   uploadStatus: MediaFileUploadStatus;
+  /**
+   * Server-assigned human name (Prompt A). Optional because older backends may
+   * not return it on GET /files — consumers fall back to `fileName`.
+   */
+  displayName?: string | null;
   durationSeconds: number | null;
   thumbnailS3Key: string | null;
   /** ISO 8601 string. */
@@ -116,6 +121,66 @@ export async function moveFileToFolder(
   return {
     ...data,
     sizeBytes: String(data.sizeBytes),
+  };
+}
+
+/**
+ * Target folder for a batch move. A real folder id, or the literal string
+ * `'none'` to unfile (the batch endpoint's convention — distinct from the
+ * per-file endpoint above, which takes `null`).
+ */
+export const BATCH_MOVE_UNFILED = 'none';
+
+/**
+ * Result of a batch file operation. `skippedIds` are files the server declined
+ * to act on (e.g. an agency-owned file in a personal move) — distinct from a
+ * transport failure, which rejects the whole call.
+ *
+ * NOTE: response field names are assumed from the Phase 4b spec and NOT yet
+ * verified against the backend. If the server returns different keys, correct
+ * them here — every consumer reads through these two functions.
+ */
+export type BatchFileResult = {
+  succeededIds: string[];
+  skippedIds: string[];
+};
+
+type BatchMoveResponse = {
+  movedIds?: string[];
+  skippedIds?: string[];
+};
+
+type BatchDeleteResponse = {
+  deletedIds?: string[];
+  skippedIds?: string[];
+};
+
+/**
+ * POST /files/batch/move — move many files at once. Named `…Request` to stay
+ * distinct from the legacy per-file `batchMoveFiles` in utils/batchFileOperations.
+ */
+export async function requestBatchMove(
+  fileIds: readonly string[],
+  targetFolderId: string,
+): Promise<BatchFileResult> {
+  const response = await apiClient.post<BatchMoveResponse>('/files/batch/move', {
+    fileIds,
+    targetFolderId,
+  });
+  return {
+    succeededIds: response.data.movedIds ?? [],
+    skippedIds: response.data.skippedIds ?? [],
+  };
+}
+
+/** POST /files/batch/delete — permanently delete many cloud files at once. */
+export async function requestBatchDelete(fileIds: readonly string[]): Promise<BatchFileResult> {
+  const response = await apiClient.post<BatchDeleteResponse>('/files/batch/delete', {
+    fileIds,
+  });
+  return {
+    succeededIds: response.data.deletedIds ?? [],
+    skippedIds: response.data.skippedIds ?? [],
   };
 }
 

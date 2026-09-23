@@ -1,8 +1,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, ViewStyle } from 'react-native';
 
-import { colors } from '../theme/colors';
-import { typography } from '../theme/typography';
+import { createThemedStyles } from '../theme/createThemedStyles';
 
 type SecondaryButtonProps = {
   label: string;
@@ -12,6 +11,7 @@ type SecondaryButtonProps = {
 };
 
 export function SecondaryButton({ label, onPress, style, disabled }: SecondaryButtonProps) {
+  const styles = useStyles();
   return (
     <Pressable
       accessibilityRole="button"
@@ -30,13 +30,13 @@ export function SecondaryButton({ label, onPress, style, disabled }: SecondaryBu
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createThemedStyles((t) => StyleSheet.create({
   button: {
     height: 52,
-    borderRadius: 14,
+    borderRadius: t.radius.sm,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.card,
+    borderColor: t.colors.line,
+    backgroundColor: t.colors.card,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -47,10 +47,11 @@ const styles = StyleSheet.create({
     opacity: 0.55,
   },
   label: {
-    ...typography.button,
-    color: colors.primaryNavy,
+    fontFamily: t.typography.body[600],
+    fontSize: 16,
+    color: t.colors.text,
   },
   labelMuted: {
     opacity: 0.92,
   },
-});
+}));

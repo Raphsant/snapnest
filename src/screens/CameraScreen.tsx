@@ -7,46 +7,66 @@ import {
   type FlashMode,
 } from 'expo-camera';
 import * as FileSystem from 'expo-file-system/legacy';
+import { Image } from 'expo-image';
 import * as MediaLibrary from 'expo-media-library';
 import { StatusBar } from 'expo-status-bar';
-import {
-  Animated,
-  Linking,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Animated, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { useIsFocused, useNavigation } from '@react-navigation/native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  ChevronDown,
+  Flashlight,
+  FlashlightOff,
+  Folder as FolderIcon,
+  Grid3x3,
+  RefreshCw,
+  Timer as TimerIcon,
+  VideoOff,
+  Zap,
+  ZapOff,
+} from 'lucide-react-native';
+
 import type { MainTabParamList } from '../navigation/mainTabTypes';
-import { GlassCard } from '../components/GlassCard';
-import { PrimaryButton } from '../components/PrimaryButton';
+import { Card } from '../components/ui/Card';
+import { DisplayText } from '../components/ui/DisplayText';
+import { PillButton } from '../components/ui/PillButton';
+import { Toast } from '../components/ui/Toast';
 import { CameraFlash } from '../components/CameraFlash';
 import { RuleOfThirdsGrid, TimerCountdown } from '../components/CameraOverlays';
 import { CaptureToast, type CaptureToastType } from '../components/CaptureToast';
 import { DestinationPickerSheet } from '../components/DestinationPickerSheet';
 import { PushPromptBanner, useUploadNotificationPrompt } from '../components/PushPromptBanner';
 import { useFolders } from '../hooks/useFolders';
-import { enqueueUpload } from '../services/uploadManager';
+import { useSyncStatus } from '../hooks/useSyncStatus';
+import { enqueueUpload, subscribeUploadJobCreated } from '../services/uploadManager';
 import { generateThumbnail } from '../services/thumbnailService';
-import { useAuthStore } from '../store/authStore';
 import { useCameraStore } from '../store/cameraStore';
-import { colors } from '../theme/colors';
-import { spacing } from '../theme/spacing';
-import { typography } from '../theme/typography';
+import { useUploadQueueStore } from '../store/uploadQueueStore';
+import { createThemedStyles } from '../theme/createThemedStyles';
+import { useTheme } from '../theme/tokens';
 
 type CaptureMode = 'photo' | 'video';
 type ToastState = { message: string; type: CaptureToastType } | null;
+type CaptureToastContent = { title: string; subtitle: string } | null;
 
-const SHUTTER_SIZE = 80;
-const INNER_RING_WIDTH = 3;
+const SHUTTER_SIZE = 82;
+const SHUTTER_BORDER = 4;
+const SHUTTER_INNER_IDLE = 66;
+const SHUTTER_INNER_RECORDING = 30;
 const isSimulator = !Device.isDevice;
 /** Maps pinch delta (scale-1) onto the camera's normalized 0–1 zoom. Tune on device. */
 const ZOOM_SENSITIVITY = 0.5;
+/**
+ * Normalized zoom that reads as roughly "2×". expo-camera's zoom is a 0–1
+ * scalar over the single active lens, NOT an optical multiplier and NOT wide
+ * enough to reach the ultrawide (.5×) lens — so this is an on-device-tuned
+ * approximation, and there is deliberately no .5× preset.
+ */
+const ZOOM_2X = 0.04;
+/** How long the capture toast stays up; the caller owns this timer. */
+const CAPTURE_TOAST_MS = 2600;
 
 /**
  * Fire-and-forget — queues the captured file for background upload.
@@ -58,19 +78,19 @@ const ZOOM_SENSITIVITY = 0.5;
  * under way within about a second of the shutter. Lock the phone right after
  * capturing and the transfer is already the OS's problem, not the JS thread's.
  *
- * Resolves true only once the item is actually on the queue; the notification
- * pre-prompt hangs off that, so a vanished file or a thrown enqueue must not
- * count as a capture worth prompting about.
+ * Resolves the item id + generated fileName once the item is actually on the
+ * queue, or null if the file vanished / enqueue threw. The caller keys the
+ * capture toast and the notification pre-prompt off a non-null result.
  */
 async function queueCaptureUpload(
   uri: string,
   kind: 'photo' | 'video',
   folderId: string | null,
-): Promise<boolean> {
+): Promise<{ id: string; fileName: string } | null> {
   try {
     const info = await FileSystem.getInfoAsync(uri);
     if (!info.exists) {
-      return false;
+      return null;
     }
     const sizeBytes = typeof info.size === 'number' ? info.size : 0;
     const ext = kind === 'photo' ? 'jpg' : 'mp4';
@@ -84,7 +104,7 @@ async function queueCaptureUpload(
     const thumbnailPromise = generateThumbnail({ localUri: uri, mimeType });
 
     // folderId null = system "Unfiled"; processItem omits it from POST /uploads.
-    enqueueUpload(
+    const id = enqueueUpload(
       {
         localUri: uri,
         fileName,
@@ -97,20 +117,21 @@ async function queueCaptureUpload(
       },
       { thumbnailPromise },
     );
-    return true;
+    return { id, fileName };
   } catch (error) {
     console.error('[CameraScreen] failed to enqueue upload', error);
-    return false;
+    return null;
   }
 }
 
 export function CameraScreen() {
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
+  const styles = useStyles();
   const navigation = useNavigation<BottomTabNavigationProp<MainTabParamList>>();
-  const firstName = useAuthStore((s) => s.user?.firstName);
-  const displayName = firstName?.trim() ? firstName.trim() : 'there';
   const cameraRef = useRef<CameraView | null>(null);
   const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const captureToastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
@@ -123,13 +144,17 @@ export function CameraScreen() {
   const [recordingDuration, setRecordingDuration] = useState(0);
   const [showFlash, setShowFlash] = useState(false);
   const [toast, setToast] = useState<ToastState>(null);
+  const [captureToast, setCaptureToast] = useState<CaptureToastContent>(null);
   const [isCapturingPhoto, setIsCapturingPhoto] = useState(false);
   const [isModeTransitioning, setIsModeTransitioning] = useState(false);
+  const [sessionCount, setSessionCount] = useState(0);
 
   // Capability controls — component state only (no store backs this screen).
   const [photoFlash, setPhotoFlash] = useState<FlashMode>('off');
   const [torchOn, setTorchOn] = useState(false);
-  const [mirror, setMirror] = useState(true);
+  // Front-camera selfie mirror. The toggle was dropped in the Organic redesign;
+  // front captures stay mirrored (the long-standing default), back never mirrors.
+  const [mirror] = useState(true);
   const [gridOn, setGridOn] = useState(false);
   const [timerDuration, setTimerDuration] = useState<0 | 3 | 10>(0);
   const [countdown, setCountdown] = useState<number | null>(null);
@@ -145,12 +170,31 @@ export function CameraScreen() {
   const foldersQuery = useFolders();
   const [destPickerVisible, setDestPickerVisible] = useState(false);
 
+  // Upload queue — drives the status pill and the last-capture thumbnail.
+  const queueItems = useUploadQueueStore((s) => s.items);
+
+  // Shared upload/connectivity state — same derivation as the Folders/Uploads
+  // SyncStatusCard, so the pill and the card can't disagree.
+  const sync = useSyncStatus();
+  // Mirror of online-ness for capture callbacks, which must read the current
+  // value without being re-created when it changes.
+  const isOnlineRef = useRef(true);
+  useEffect(() => {
+    isOnlineRef.current = !sync.isOffline;
+  }, [sync.isOffline]);
+
   // One-time notification pre-prompt. Owns its own "already asked" bookkeeping
   // and permission check — this screen only tells it a capture was queued.
   const pushPrompt = useUploadNotificationPrompt();
   // Pulled out separately: the hook returns a fresh object each render, so
   // depending on `pushPrompt` would re-create every capture callback downstream.
   const { notifyCaptureQueued } = pushPrompt;
+
+  // Capture id → generated fileName, for the toast fallback when the backend
+  // sends no displayName. `toasted` dedupes so an offline pre-toast and the
+  // later job-created event (or a retry re-emit) never double-fire.
+  const enqueuedNamesRef = useRef<Map<string, string>>(new Map());
+  const toastedIdsRef = useRef<Set<string>>(new Set());
 
   // If the selected folder is deleted (or otherwise vanishes from the list),
   // fall back to the Unfiled default so the chip and the upload target agree.
@@ -170,7 +214,6 @@ export function CameraScreen() {
   const viewfinderOpacity = useRef(new Animated.Value(1)).current;
 
   const cameraMode = mode === 'video' ? 'video' : 'picture';
-  const canSaveToLibrary = mediaPermission?.granted === true;
   const mediaDenied = mediaPermission != null && mediaPermission.granted === false;
   const showMediaWarning = showControlsFromPermissions(cameraPermission, microphonePermission) && mediaDenied;
 
@@ -227,6 +270,14 @@ export function CameraScreen() {
     [],
   );
 
+  /** Jump to a preset zoom, keeping the pinch base in sync so a later pinch accumulates from here. */
+  const setZoomPreset = useCallback((value: number): void => {
+    setZoom(value);
+    baseZoomRef.current = value;
+  }, []);
+  // Which preset pill reads as active. Midpoint split so a pinch lands on the nearest.
+  const zoomIsTele = zoom >= ZOOM_2X / 2;
+
   /** One control: cycles photo flash (off→auto→on) or toggles the video torch. */
   const cycleFlashOrTorch = useCallback((): void => {
     if (mode === 'photo') {
@@ -244,12 +295,8 @@ export function CameraScreen() {
     setGridOn((prev) => !prev);
   }, []);
 
-  const toggleMirror = useCallback((): void => {
-    setMirror((prev) => !prev);
-  }, []);
-
-  const goToSettingsTab = useCallback((): void => {
-    navigation.navigate('Settings');
+  const goToUploads = useCallback((): void => {
+    navigation.navigate('Activity');
   }, [navigation]);
 
   const cameraGranted = cameraPermission?.granted === true;
@@ -264,12 +311,12 @@ export function CameraScreen() {
   /** Show shutter row on simulator (UI dev) or when hardware permissions are granted */
   const showControls = showControlsFromPermissions(cameraPermission, microphonePermission);
 
-  /** Reserve space above the floating tab bar (≈104px bar+fab) + 100px breathing room */
+  const topRowTop = insets.top;
+  const controlColumnTop = insets.top + 54;
+  /** Reserve space above the floating tab bar (≈90) + breathing room for the cluster. */
   const bottomChromePadding = insets.bottom + 116;
-  /** Clears the mode pills (~36) + shutter (80 + 16 margin) so the prompt never covers them */
-  const promptBottomOffset = bottomChromePadding + 148;
-  const toastTopOffset = insets.top + spacing.lg;
-  const controlColumnTop = insets.top + 96;
+  /** Clears the shutter row so the prompt never covers it. */
+  const promptBottomOffset = bottomChromePadding + 196;
 
   const recordingTimeLabel = useMemo(() => {
     const minutes = Math.floor(recordingDuration / 60);
@@ -277,16 +324,12 @@ export function CameraScreen() {
     return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
   }, [recordingDuration]);
 
-  // Flash control reflects both mode (flash vs torch) and current state.
-  const flashIconName = useMemo<React.ComponentProps<typeof Ionicons>['name']>(() => {
-    if (mode === 'video') {
-      return torchOn ? 'flashlight' : 'flashlight-outline';
-    }
-    return photoFlash === 'on' ? 'flash' : photoFlash === 'auto' ? 'flash-outline' : 'flash-off-outline';
-  }, [mode, photoFlash, torchOn]);
-
   const flashActive = mode === 'video' ? torchOn : photoFlash !== 'off';
   const flashAutoBadge = mode === 'photo' && photoFlash === 'auto';
+  // Lucide component for the flash/torch control, chosen by mode + state.
+  const FlashGlyph = mode === 'video'
+    ? torchOn ? Flashlight : FlashlightOff
+    : photoFlash === 'off' ? ZapOff : Zap;
 
   // Chip label: selected folder's name, defaulting to the system folder ("Unfiled").
   const destinationLabel = useMemo((): string => {
@@ -297,22 +340,77 @@ export function CameraScreen() {
     return folders.find((folder) => folder.id === destinationFolderId)?.name ?? 'Unfiled';
   }, [foldersQuery.data, destinationFolderId]);
 
-  const showToast = useCallback((message: string, type: CaptureToastType): void => {
+  // Status pill: formats the shared sync state. offline > waiting > uploading% > ok.
+  const statusPill = useMemo((): { dot: string; label: string } => {
+    switch (sync.kind) {
+      case 'offline':
+        return { dot: theme.colors.warn, label: 'Offline' };
+      case 'waiting':
+        return { dot: theme.colors.warn, label: `${sync.pendingCount} waiting` };
+      case 'uploading':
+        return { dot: theme.colors.accent, label: `${sync.progress}%` };
+      default:
+        return { dot: theme.colors.ok, label: 'Backed up' };
+    }
+  }, [sync, theme]);
+
+  // Newest queue item drives the thumbnail button (its thumb + upload progress).
+  const latestItem = useMemo(() => {
+    if (queueItems.length === 0) {
+      return undefined;
+    }
+    return queueItems.reduce((newest, item) => (item.createdAt > newest.createdAt ? item : newest));
+  }, [queueItems]);
+  const latestThumbnailUri = latestItem?.thumbnailUri ?? null;
+  const latestUploadingPct =
+    latestItem && latestItem.status === 'uploading' ? latestItem.progress : null;
+
+  const showErrorToast = useCallback((message: string): void => {
     if (toastTimeoutRef.current) {
       clearTimeout(toastTimeoutRef.current);
       toastTimeoutRef.current = null;
     }
-    setToast({ message, type });
+    setToast({ message, type: 'error' });
     toastTimeoutRef.current = setTimeout(() => {
       setToast(null);
       toastTimeoutRef.current = null;
     }, 1500);
   }, []);
 
+  /** Capture confirmation pill (Phase 1 Toast). Caller-owned auto-dismiss. */
+  const showCaptureToast = useCallback((name: string, online: boolean): void => {
+    if (captureToastTimeoutRef.current) {
+      clearTimeout(captureToastTimeoutRef.current);
+      captureToastTimeoutRef.current = null;
+    }
+    setCaptureToast({
+      title: `${name} saved`,
+      subtitle: online ? 'Uploading now' : "Saved on device · will upload when you're back online",
+    });
+    captureToastTimeoutRef.current = setTimeout(() => {
+      setCaptureToast(null);
+      captureToastTimeoutRef.current = null;
+    }, CAPTURE_TOAST_MS);
+  }, []);
+
+  // Job-created events carry the backend displayName. Toast only for captures
+  // this screen enqueued, and only once per item.
+  useEffect(() => {
+    const unsubscribe = subscribeUploadJobCreated((event) => {
+      const fallback = enqueuedNamesRef.current.get(event.id);
+      if (fallback === undefined || toastedIdsRef.current.has(event.id)) {
+        return;
+      }
+      toastedIdsRef.current.add(event.id);
+      showCaptureToast(event.displayName ?? fallback, isOnlineRef.current);
+    });
+    return unsubscribe;
+  }, [showCaptureToast]);
+
   const animateRecordShape = useCallback((toValue: 0 | 1): void => {
     Animated.timing(recordMorph, {
       toValue,
-      duration: 200,
+      duration: 180,
       useNativeDriver: false,
     }).start();
   }, [recordMorph]);
@@ -325,8 +423,8 @@ export function CameraScreen() {
 
     const loop = Animated.loop(
       Animated.sequence([
-        Animated.timing(blinkOpacity, { toValue: 0.25, duration: 450, useNativeDriver: true }),
-        Animated.timing(blinkOpacity, { toValue: 1, duration: 450, useNativeDriver: true }),
+        Animated.timing(blinkOpacity, { toValue: 0.25, duration: 600, useNativeDriver: true }),
+        Animated.timing(blinkOpacity, { toValue: 1, duration: 600, useNativeDriver: true }),
       ])
     );
     loop.start();
@@ -357,6 +455,9 @@ export function CameraScreen() {
       if (toastTimeoutRef.current) {
         clearTimeout(toastTimeoutRef.current);
       }
+      if (captureToastTimeoutRef.current) {
+        clearTimeout(captureToastTimeoutRef.current);
+      }
       if (countdownIntervalRef.current) {
         clearInterval(countdownIntervalRef.current);
       }
@@ -380,48 +481,66 @@ export function CameraScreen() {
           hasPermission = result.granted === true;
         } catch (error) {
           console.error('Failed requesting media library permission', error);
-          showToast("Couldn't save", 'error');
+          showErrorToast("Couldn't save");
           return false;
         }
       }
 
       if (!hasPermission) {
-        showToast("Couldn't save", 'error');
+        showErrorToast("Couldn't save");
         return false;
       }
 
       try {
         await MediaLibrary.saveToLibraryAsync(uri);
-        showToast('Saved', 'success');
+        // Success is signalled by the capture toast, not a second library toast.
         return true;
       } catch (error) {
         console.error('Failed saving capture to media library', error);
-        showToast("Couldn't save", 'error');
+        showErrorToast("Couldn't save");
         return false;
       }
     },
-    [mediaPermission?.granted, requestMediaPermission, showToast]
+    [mediaPermission?.granted, requestMediaPermission, showErrorToast]
   );
 
   /**
-   * Queues the capture and, on a real enqueue, lets the pre-prompt decide
-   * whether this is the moment to ask about notifications.
+   * Records a freshly-queued capture: bumps the session counter, lets the
+   * pre-prompt decide about notifications, and — if we're offline — shows the
+   * "saved on device" toast immediately, since no job-created event will arrive
+   * to trigger it while there's no connection.
+   */
+  const handleQueued = useCallback(
+    (result: { id: string; fileName: string } | null): void => {
+      if (!result) {
+        return;
+      }
+      enqueuedNamesRef.current.set(result.id, result.fileName);
+      setSessionCount((prev) => prev + 1);
+      notifyCaptureQueued();
+
+      if (!isOnlineRef.current && !toastedIdsRef.current.has(result.id)) {
+        toastedIdsRef.current.add(result.id);
+        showCaptureToast(result.fileName, false);
+      }
+    },
+    [notifyCaptureQueued, showCaptureToast],
+  );
+
+  /**
+   * Queues the capture and hands the result to handleQueued.
    *
    * The destination is read live rather than closed over: a self-timer
    * countdown can fire long after capture was requested, and the closure value
    * would be stale.
    */
-  const queueAndMaybePrompt = useCallback(
+  const queueCapture = useCallback(
     (uri: string, kind: CaptureMode): void => {
       void queueCaptureUpload(uri, kind, useCameraStore.getState().destinationFolderId).then(
-        (queued: boolean) => {
-          if (queued) {
-            notifyCaptureQueued();
-          }
-        },
+        handleQueued,
       );
     },
-    [notifyCaptureQueued],
+    [handleQueued],
   );
 
   const handlePhotoCapture = useCallback(async (): Promise<void> => {
@@ -430,7 +549,7 @@ export function CameraScreen() {
     }
 
     if (!cameraRef.current) {
-      showToast("Couldn't save", 'error');
+      showErrorToast("Couldn't save");
       return;
     }
 
@@ -440,7 +559,7 @@ export function CameraScreen() {
     try {
       const photo = await cameraRef.current.takePictureAsync({ quality: 0.9, exif: false });
       if (!photo?.uri) {
-        showToast("Couldn't save", 'error');
+        showErrorToast("Couldn't save");
         return;
       }
 
@@ -449,16 +568,18 @@ export function CameraScreen() {
       // best-effort concern that must never gate the upload (denying photo
       // library access used to silently kill uploads outright) and must never
       // delay it either — saveCapture can sit on a permission dialog for as
-      // long as the user ignores it.
-      queueAndMaybePrompt(photo.uri, 'photo');
-      void saveCapture(photo.uri);
+      // long as the user ignores it. Gated on the Settings preference, read live.
+      queueCapture(photo.uri, 'photo');
+      if (useCameraStore.getState().saveToPhotos) {
+        void saveCapture(photo.uri);
+      }
     } catch (error) {
       console.error('Photo capture failed', error);
-      showToast("Couldn't save", 'error');
+      showErrorToast("Couldn't save");
     } finally {
       setIsCapturingPhoto(false);
     }
-  }, [isCapturingPhoto, queueAndMaybePrompt, runPhotoTapPulse, saveCapture, showToast]);
+  }, [isCapturingPhoto, queueCapture, runPhotoTapPulse, saveCapture, showErrorToast]);
 
   const startVideoRecording = useCallback(async (): Promise<void> => {
     if (!cameraRef.current || isRecording) {
@@ -472,20 +593,22 @@ export function CameraScreen() {
     try {
       const video = await cameraRef.current.recordAsync({ maxDuration: 60 });
       if (!video?.uri) {
-        showToast("Couldn't save", 'error');
+        showErrorToast("Couldn't save");
         return;
       }
       // Upload first and unconditionally — same reasoning as the photo path.
-      queueAndMaybePrompt(video.uri, 'video');
-      void saveCapture(video.uri);
+      queueCapture(video.uri, 'video');
+      if (useCameraStore.getState().saveToPhotos) {
+        void saveCapture(video.uri);
+      }
     } catch (error) {
       console.error('Video recording failed', error);
-      showToast("Couldn't save", 'error');
+      showErrorToast("Couldn't save");
     } finally {
       setIsRecording(false);
       animateRecordShape(0);
     }
-  }, [animateRecordShape, isRecording, queueAndMaybePrompt, saveCapture, showToast]);
+  }, [animateRecordShape, isRecording, queueCapture, saveCapture, showErrorToast]);
 
   const stopVideoRecording = useCallback((): void => {
     if (!cameraRef.current || !isRecording) {
@@ -496,11 +619,11 @@ export function CameraScreen() {
       cameraRef.current.stopRecording();
     } catch (error) {
       console.error('Stopping video recording failed', error);
-      showToast("Couldn't save", 'error');
+      showErrorToast("Couldn't save");
       setIsRecording(false);
       animateRecordShape(0);
     }
-  }, [animateRecordShape, isRecording, showToast]);
+  }, [animateRecordShape, isRecording, showErrorToast]);
 
   /** Runs the actual capture for the current mode (photo shot / video start). */
   const fireCapture = useCallback((): void => {
@@ -623,13 +746,13 @@ export function CameraScreen() {
     if (showDenied) {
       return (
         <View style={styles.permissionCenter}>
-          <GlassCard intensity={76}>
-            <Text style={styles.permissionTitle}>Camera access required</Text>
+          <Card style={styles.permissionCard}>
+            <DisplayText size={22}>Camera access required</DisplayText>
             <Text style={styles.permissionBody}>
               Enable camera and microphone in Settings to record in SnapNest.
             </Text>
-            <PrimaryButton label="Open Settings" onPress={openSettings} />
-          </GlassCard>
+            <PillButton title="Open Settings" onPress={openSettings} />
+          </Card>
         </View>
       );
     }
@@ -640,18 +763,18 @@ export function CameraScreen() {
 
     return (
       <View style={styles.permissionCenter}>
-        <GlassCard intensity={76}>
-          <Text style={styles.permissionTitle}>Camera & microphone</Text>
+        <Card style={styles.permissionCard}>
+          <DisplayText size={22}>Camera &amp; microphone</DisplayText>
           <Text style={styles.permissionBody}>
             SnapNest needs access to your camera and microphone to capture video.
           </Text>
-          <PrimaryButton
-            label="Allow Access"
+          <PillButton
+            title="Allow Access"
             onPress={() => {
               void requestAllPermissions();
             }}
           />
-        </GlassCard>
+        </Card>
       </View>
     );
   };
@@ -660,8 +783,10 @@ export function CameraScreen() {
     if (isSimulator) {
       return (
         <View style={styles.simulatorPlaceholder}>
-          <Ionicons name="videocam-outline" size={56} color={colors.tabInactive} style={styles.simulatorIcon} />
-          <Text style={styles.simulatorText}>Camera unavailable in simulator — test on a real device</Text>
+          <VideoOff size={56} color={theme.colors.faintOnDark} strokeWidth={1.5} />
+          <Text style={styles.simulatorText}>
+            Camera unavailable in simulator — test on a real device
+          </Text>
         </View>
       );
     }
@@ -715,16 +840,13 @@ export function CameraScreen() {
 
   const recordInnerSize = recordMorph.interpolate({
     inputRange: [0, 1],
-    outputRange: [SHUTTER_SIZE - 32, 24],
+    outputRange: [SHUTTER_INNER_IDLE, SHUTTER_INNER_RECORDING],
   });
   const recordInnerRadius = recordMorph.interpolate({
     inputRange: [0, 1],
-    outputRange: [(SHUTTER_SIZE - 32) / 2, 6],
+    outputRange: [SHUTTER_INNER_IDLE / 2, 9],
   });
-  const recordInnerScale = recordMorph.interpolate({
-    inputRange: [0, 1],
-    outputRange: [1, 0.98],
-  });
+  const shutterInnerColor = mode === 'photo' ? theme.colors.card : theme.colors.danger;
 
   return (
     <View style={styles.root}>
@@ -734,64 +856,62 @@ export function CameraScreen() {
       <CaptureToast
         visible={toast !== null}
         message={toast?.message ?? ''}
-        type={toast?.type ?? 'success'}
-        topOffset={toastTopOffset}
+        type={toast?.type ?? 'error'}
+        topOffset={insets.top + 12}
       />
 
       {gridOn && showControls ? <RuleOfThirdsGrid /> : null}
 
-      <SafeAreaView style={styles.overlay} edges={['top']} pointerEvents="box-none">
-        <View style={styles.topRow}>
-          <View style={styles.greetingPill}>
-            <Text style={styles.greetingText}>Hi, {displayName}</Text>
-          </View>
-          <View style={styles.topIcons}>
-            <Pressable
-              onPress={flipCamera}
-              disabled={isRecording}
-              style={({ pressed }) => [
-                styles.iconHit,
-                isRecording && styles.iconDisabled,
-                pressed && styles.iconPressed,
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel="Flip camera"
-            >
-              <Ionicons name="camera-reverse-outline" size={24} color={colors.card} />
-            </Pressable>
-            <Pressable
-              onPress={goToSettingsTab}
-              style={({ pressed }) => [styles.iconHit, pressed && styles.iconPressed]}
-              accessibilityRole="button"
-              accessibilityLabel="Open settings"
-            >
-              <Ionicons name="settings-outline" size={24} color={colors.card} />
-            </Pressable>
-          </View>
-        </View>
-      </SafeAreaView>
-
       {showControls ? (
-        <Pressable
-          onPress={() => setDestPickerVisible(true)}
-          disabled={isRecording}
-          style={({ pressed }) => [
-            styles.destinationChip,
-            { top: controlColumnTop },
-            isRecording && styles.iconDisabled,
-            pressed && styles.iconPressed,
-          ]}
-          accessibilityRole="button"
-          accessibilityLabel={`Upload destination: ${destinationLabel}`}
-          accessibilityHint="Opens the destination picker"
-          accessibilityState={{ expanded: destPickerVisible }}
-        >
-          <Ionicons name="folder-outline" size={16} color={colors.card} />
-          <Text style={styles.destinationChipText} numberOfLines={1}>
-            {destinationLabel}
-          </Text>
-          <Ionicons name="chevron-down" size={14} color={colors.card} />
-        </Pressable>
+        <View style={[styles.topRow, { top: topRowTop }]} pointerEvents="box-none">
+          <Pressable
+            onPress={() => setDestPickerVisible(true)}
+            disabled={isRecording}
+            style={({ pressed }) => [
+              styles.chip,
+              isRecording && styles.disabled,
+              pressed && styles.pressed,
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel={`Upload destination: ${destinationLabel}`}
+            accessibilityHint="Opens the destination picker"
+            accessibilityState={{ expanded: destPickerVisible }}
+          >
+            <FolderIcon size={15} color={theme.colors.white} strokeWidth={2.4} />
+            <Text style={styles.chipText} numberOfLines={1}>
+              {destinationLabel}
+            </Text>
+            <ChevronDown size={13} color={theme.colors.white} strokeWidth={2.4} />
+          </Pressable>
+
+          <View style={styles.topSpacer} />
+
+          <Pressable
+            onPress={goToUploads}
+            style={({ pressed }) => [styles.statusPill, pressed && styles.pressed]}
+            accessibilityRole="button"
+            accessibilityLabel={`Upload status: ${statusPill.label}`}
+          >
+            <View style={[styles.statusDot, { backgroundColor: statusPill.dot }]} />
+            <Text style={styles.statusText} numberOfLines={1}>
+              {statusPill.label}
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={flipCamera}
+            disabled={isRecording}
+            style={({ pressed }) => [
+              styles.flipButton,
+              isRecording && styles.disabled,
+              pressed && styles.pressed,
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="Flip camera"
+          >
+            <RefreshCw size={18} color={theme.colors.white} strokeWidth={2.2} />
+          </Pressable>
+        </View>
       ) : null}
 
       {showControls ? (
@@ -801,15 +921,15 @@ export function CameraScreen() {
             style={({ pressed }) => [
               styles.controlButton,
               flashActive && styles.controlButtonActive,
-              pressed && styles.iconPressed,
+              pressed && styles.pressed,
             ]}
             accessibilityRole="button"
             accessibilityLabel={mode === 'video' ? 'Toggle torch' : 'Cycle flash mode'}
           >
-            <Ionicons
-              name={flashIconName}
+            <FlashGlyph
               size={22}
-              color={flashActive ? colors.accentBlue : colors.card}
+              color={flashActive ? theme.colors.accentDeep : theme.colors.white}
+              strokeWidth={2.2}
             />
             {flashAutoBadge ? <Text style={styles.controlBadge}>A</Text> : null}
           </Pressable>
@@ -819,17 +939,16 @@ export function CameraScreen() {
             style={({ pressed }) => [
               styles.controlButton,
               timerDuration > 0 && styles.controlButtonActive,
-              pressed && styles.iconPressed,
+              pressed && styles.pressed,
             ]}
             accessibilityRole="button"
             accessibilityLabel="Cycle self-timer"
           >
-            <Ionicons
-              name="timer-outline"
-              size={22}
-              color={timerDuration > 0 ? colors.accentBlue : colors.card}
-            />
-            {timerDuration > 0 ? <Text style={styles.controlBadge}>{timerDuration}</Text> : null}
+            {timerDuration === 0 ? (
+              <TimerIcon size={22} color={theme.colors.white} strokeWidth={2.2} />
+            ) : (
+              <Text style={styles.controlText}>{timerDuration}s</Text>
+            )}
           </Pressable>
 
           <Pressable
@@ -837,110 +956,145 @@ export function CameraScreen() {
             style={({ pressed }) => [
               styles.controlButton,
               gridOn && styles.controlButtonActive,
-              pressed && styles.iconPressed,
+              pressed && styles.pressed,
             ]}
             accessibilityRole="button"
             accessibilityLabel="Toggle grid"
           >
-            <Ionicons name="grid-outline" size={22} color={gridOn ? colors.accentBlue : colors.card} />
+            <Grid3x3
+              size={22}
+              color={gridOn ? theme.colors.accentDeep : theme.colors.white}
+              strokeWidth={2.2}
+            />
           </Pressable>
+        </View>
+      ) : null}
 
-          {facing === 'front' ? (
-            <Pressable
-              onPress={toggleMirror}
-              style={({ pressed }) => [
-                styles.controlButton,
-                mirror && styles.controlButtonActive,
-                pressed && styles.iconPressed,
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel="Toggle front-camera mirror"
-            >
-              <Ionicons
-                name="swap-horizontal"
-                size={22}
-                color={mirror ? colors.accentBlue : colors.card}
-              />
-            </Pressable>
-          ) : null}
+      {showControls && isRecording ? (
+        <View style={[styles.recordingPill, { top: controlColumnTop }]} pointerEvents="none">
+          <Animated.View style={[styles.recordingDot, { opacity: blinkOpacity }]} />
+          <Text style={styles.recordingText}>{recordingTimeLabel}</Text>
         </View>
       ) : null}
 
       {showControls ? (
-        <View style={[styles.bottomControls, { paddingBottom: bottomChromePadding }]} pointerEvents="box-none">
+        <View style={[styles.bottomCluster, { bottom: bottomChromePadding }]} pointerEvents="box-none">
           {showMediaWarning ? (
             <Pressable onPress={openSettings} style={styles.mediaWarningPill} accessibilityRole="button">
-              <Text style={styles.mediaWarningText}>Captures won&apos;t be saved to your camera roll. Tap to fix.</Text>
+              <Text style={styles.mediaWarningText}>
+                Captures won&apos;t be saved to your camera roll. Tap to fix.
+              </Text>
             </Pressable>
           ) : null}
 
-          {isRecording ? (
-            <View style={styles.recordingHud} pointerEvents="none">
-              <Animated.View style={[styles.recordingDot, { opacity: blinkOpacity }]} />
-              <Text style={styles.recordingText}>{recordingTimeLabel}</Text>
-            </View>
-          ) : null}
+          <View style={styles.zoomRow}>
+            <Pressable
+              onPress={() => setZoomPreset(0)}
+              style={[styles.zoomPill, !zoomIsTele ? styles.zoomPillActive : styles.zoomPillInactive]}
+              accessibilityRole="button"
+              accessibilityLabel="Zoom 1x"
+              accessibilityState={{ selected: !zoomIsTele }}
+            >
+              <Text style={!zoomIsTele ? styles.zoomTextActive : styles.zoomTextInactive}>1×</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => setZoomPreset(ZOOM_2X)}
+              style={[styles.zoomPill, zoomIsTele ? styles.zoomPillActive : styles.zoomPillInactive]}
+              accessibilityRole="button"
+              accessibilityLabel="Zoom 2x"
+              accessibilityState={{ selected: zoomIsTele }}
+            >
+              <Text style={zoomIsTele ? styles.zoomTextActive : styles.zoomTextInactive}>2×</Text>
+            </Pressable>
+          </View>
 
-          <Pressable
-            onPress={handleCapturePress}
-            disabled={isCapturingPhoto}
-            style={({ pressed }) => [styles.shutterOuter, pressed && !isRecording && { opacity: 0.88 }]}
-            accessibilityRole="button"
-            accessibilityLabel="Capture"
-          >
-            <Animated.View style={[styles.shutterAnimated, { transform: [{ scale: shutterScale }] }]}>
-              <View style={styles.shutterInnerRing}>
-                <Animated.View
-                  style={[
-                    styles.shutterInnerCore,
-                    {
-                      width: recordInnerSize,
-                      height: recordInnerSize,
-                      borderRadius: recordInnerRadius,
-                      backgroundColor: isRecording ? colors.error : colors.card,
-                      transform: [{ scale: recordInnerScale }],
-                    },
-                  ]}
-                />
-              </View>
-            </Animated.View>
-          </Pressable>
-
-          <View style={styles.modeRow}>
+          <View style={styles.modeTrack}>
             <Pressable
               disabled={isRecording || isModeTransitioning}
               onPress={handleSwitchToPhoto}
-              style={[
-                styles.modePill,
-                mode === 'photo' ? styles.modePillActive : styles.modePillInactive,
-                (isRecording || isModeTransitioning) && styles.modeDisabled,
-              ]}
+              style={[styles.modeSeg, mode === 'photo' && styles.modeSegActive]}
               accessibilityRole="button"
+              accessibilityState={{ selected: mode === 'photo' }}
             >
-              <Text style={[styles.modePillText, mode === 'photo' && styles.modePillTextActive]}>PHOTO</Text>
+              <Text style={mode === 'photo' ? styles.modeTextActive : styles.modeTextInactive}>
+                PHOTO
+              </Text>
             </Pressable>
             <Pressable
               disabled={isRecording || isModeTransitioning}
               onPress={handleSwitchToVideo}
-              style={[
-                styles.modePill,
-                mode === 'video' ? styles.modePillActive : styles.modePillInactive,
-                (isRecording || isModeTransitioning) && styles.modeDisabled,
-              ]}
+              style={[styles.modeSeg, mode === 'video' && styles.modeSegActive]}
               accessibilityRole="button"
+              accessibilityState={{ selected: mode === 'video' }}
             >
-              <Text style={[styles.modePillText, mode === 'video' && styles.modePillTextActive]}>VIDEO</Text>
+              <Text style={mode === 'video' ? styles.modeTextActive : styles.modeTextInactive}>
+                VIDEO
+              </Text>
             </Pressable>
+          </View>
+
+          <View style={styles.shutterRow}>
+            <View style={styles.sideSlot}>
+              <Pressable
+                onPress={goToUploads}
+                style={styles.thumbButton}
+                accessibilityRole="button"
+                accessibilityLabel="View recent uploads"
+              >
+                {latestThumbnailUri ? (
+                  <Image source={{ uri: latestThumbnailUri }} style={styles.thumbImage} contentFit="cover" />
+                ) : (
+                  <View style={styles.thumbEmpty} />
+                )}
+                {latestUploadingPct !== null ? (
+                  <View style={styles.thumbOverlay}>
+                    <View style={styles.thumbScrim} />
+                    <Text style={styles.thumbPct}>{latestUploadingPct}%</Text>
+                  </View>
+                ) : null}
+              </Pressable>
+            </View>
+
+            <Pressable
+              onPress={handleCapturePress}
+              disabled={isCapturingPhoto}
+              style={({ pressed }) => [styles.shutterOuter, pressed && !isRecording && styles.pressed]}
+              accessibilityRole="button"
+              accessibilityLabel="Capture"
+            >
+              <Animated.View style={[styles.shutterAnimated, { transform: [{ scale: shutterScale }] }]}>
+                <Animated.View
+                  style={{
+                    width: recordInnerSize,
+                    height: recordInnerSize,
+                    borderRadius: recordInnerRadius,
+                    backgroundColor: shutterInnerColor,
+                  }}
+                />
+              </Animated.View>
+            </Pressable>
+
+            <View style={styles.sideSlot}>
+              {sessionCount > 0 ? (
+                <Text style={styles.sessionText} numberOfLines={2}>
+                  {sessionCount} this session
+                </Text>
+              ) : null}
+            </View>
           </View>
         </View>
       ) : null}
+
       {countdown !== null ? <TimerCountdown seconds={countdown} /> : null}
+
       <PushPromptBanner
         visible={pushPrompt.visible}
         onEnable={pushPrompt.onEnable}
         onDismiss={pushPrompt.onDismiss}
         bottomOffset={promptBottomOffset}
       />
+
+      {captureToast ? <Toast title={captureToast.title} subtitle={captureToast.subtitle} /> : null}
 
       <DestinationPickerSheet
         visible={destPickerVisible}
@@ -962,10 +1116,10 @@ function showControlsFromPermissions(
   return isSimulator || (cameraGranted && micGranted);
 }
 
-const styles = StyleSheet.create({
+const useStyles = createThemedStyles((theme) => StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.primaryNavy,
+    backgroundColor: theme.colors.darkBg,
   },
   viewfinder: {
     ...StyleSheet.absoluteFillObject,
@@ -973,9 +1127,7 @@ const styles = StyleSheet.create({
   camera: {
     ...StyleSheet.absoluteFillObject,
   },
-  /** Transparent pinch target above the camera. zIndex 0 pins it under every
-   *  control (the control column and destination chip sit at zIndex 20; the
-   *  rest win on render order). */
+  /** Transparent pinch target above the camera, pinned under every control. */
   zoomCatcher: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 0,
@@ -984,221 +1136,307 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.primaryNavy,
-    paddingHorizontal: spacing.xxl,
-  },
-  simulatorIcon: {
-    opacity: 0.35,
-    marginBottom: spacing.md,
+    backgroundColor: theme.colors.darkBg,
+    paddingHorizontal: 24,
+    gap: 12,
   },
   simulatorText: {
-    ...typography.body,
-    color: colors.tabInactive,
+    fontFamily: theme.typography.body[400],
+    fontSize: 15,
+    color: theme.colors.faintOnDark,
     textAlign: 'center',
   },
   permissionCenter: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
-    paddingHorizontal: spacing.xxl,
-    backgroundColor: colors.primaryNavy,
+    paddingHorizontal: 24,
+    backgroundColor: theme.colors.darkBg,
   },
-  permissionTitle: {
-    ...typography.h2,
-    color: colors.primaryNavy,
-    marginBottom: spacing.sm,
+  permissionCard: {
+    padding: 20,
+    gap: 12,
   },
   permissionBody: {
-    ...typography.body,
-    color: colors.mutedText,
-    marginBottom: spacing.lg,
+    fontFamily: theme.typography.body[400],
+    fontSize: 14,
+    lineHeight: 20,
+    color: theme.colors.muted,
   },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'flex-start',
+  pressed: {
+    opacity: 0.72,
   },
-  topRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
-  },
-  greetingPill: {
-    backgroundColor: 'rgba(0,0,0,0.35)',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: 20,
-    maxWidth: '70%',
-  },
-  greetingText: {
-    ...typography.bodySmall,
-    color: colors.card,
-    fontWeight: '600',
-  },
-  topIcons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  iconHit: {
-    padding: spacing.sm,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0,0,0,0.25)',
-  },
-  iconPressed: {
-    opacity: 0.75,
-  },
-  iconDisabled: {
+  disabled: {
     opacity: 0.4,
   },
-  controlColumn: {
+
+  // Top row -------------------------------------------------------------------
+  topRow: {
     position: 'absolute',
-    right: spacing.lg,
-    alignItems: 'center',
-    gap: spacing.md,
-    zIndex: 20,
-  },
-  destinationChip: {
-    position: 'absolute',
-    left: spacing.lg,
-    maxWidth: '55%',
+    left: 14,
+    right: 14,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0,0,0,0.35)',
+    gap: 8,
     zIndex: 20,
   },
-  destinationChipText: {
-    ...typography.bodySmall,
-    color: colors.card,
-    fontWeight: '600',
+  topSpacer: {
+    flex: 1,
+  },
+  chip: {
+    height: 38,
+    maxWidth: '58%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    borderRadius: theme.radius.pill,
+    backgroundColor: theme.colors.darkGlass,
+    borderWidth: 1,
+    borderColor: theme.colors.lineOnDark,
+  },
+  chipText: {
     flexShrink: 1,
+    maxWidth: 190,
+    fontFamily: theme.typography.body[600],
+    fontSize: 13,
+    color: theme.colors.white,
+  },
+  statusPill: {
+    height: 38,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+    borderRadius: theme.radius.pill,
+    backgroundColor: theme.colors.darkGlass,
+    borderWidth: 1,
+    borderColor: theme.colors.lineOnDark,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: theme.radius.pill,
+  },
+  statusText: {
+    fontFamily: theme.typography.body[600],
+    fontSize: 13,
+    color: theme.colors.white,
+    fontVariant: ['tabular-nums'],
+  },
+  flipButton: {
+    width: 38,
+    height: 38,
+    borderRadius: theme.radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.darkGlass,
+    borderWidth: 1,
+    borderColor: theme.colors.lineOnDark,
+  },
+
+  // Right control column ------------------------------------------------------
+  controlColumn: {
+    position: 'absolute',
+    right: 14,
+    alignItems: 'center',
+    gap: 9,
+    zIndex: 20,
   },
   controlButton: {
     width: 44,
     height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(0,0,0,0.35)',
+    borderRadius: theme.radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: theme.colors.darkGlass,
+    borderWidth: 1,
+    borderColor: theme.colors.lineOnDark,
   },
   controlButtonActive: {
-    backgroundColor: 'rgba(255,255,255,0.92)',
+    backgroundColor: theme.colors.glass,
+    borderColor: theme.colors.glass,
+  },
+  controlText: {
+    fontFamily: theme.typography.body[700],
+    fontSize: 12,
+    color: theme.colors.accentDeep,
+    fontVariant: ['tabular-nums'],
   },
   controlBadge: {
     position: 'absolute',
-    bottom: 3,
-    right: 6,
+    bottom: 4,
+    right: 7,
+    fontFamily: theme.typography.body[800],
     fontSize: 10,
-    fontWeight: '800',
-    color: colors.accentBlue,
-    fontVariant: ['tabular-nums'],
+    color: theme.colors.accentDeep,
   },
-  recordingHud: {
+
+  // Recording pill ------------------------------------------------------------
+  recordingPill: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 6,
-    borderRadius: 16,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    marginBottom: spacing.md,
+    justifyContent: 'center',
+    gap: 8,
+    zIndex: 20,
   },
   recordingDot: {
     width: 8,
     height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.error,
+    borderRadius: theme.radius.pill,
+    backgroundColor: theme.colors.white,
   },
   recordingText: {
-    ...typography.bodySmall,
-    color: colors.card,
-    fontWeight: '700',
-    letterSpacing: 0.8,
+    fontFamily: theme.typography.body[700],
+    fontSize: 13,
+    color: theme.colors.white,
     fontVariant: ['tabular-nums'],
   },
-  bottomControls: {
+
+  // Bottom cluster ------------------------------------------------------------
+  bottomCluster: {
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: 0,
     alignItems: 'center',
+    gap: 16,
+    zIndex: 20,
   },
   mediaWarningPill: {
-    marginBottom: spacing.md,
-    backgroundColor: 'rgba(16,42,67,0.7)',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: theme.radius.pill,
+    backgroundColor: theme.colors.darkGlass,
+    borderWidth: 1,
+    borderColor: theme.colors.lineOnDark,
   },
   mediaWarningText: {
-    ...typography.bodySmall,
-    color: colors.card,
-    fontWeight: '600',
+    fontFamily: theme.typography.body[600],
+    fontSize: 12.5,
+    color: theme.colors.white,
     textAlign: 'center',
   },
-  /** White ring + inner disc — classic shutter affordance; recording wiring comes later */
+  zoomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  zoomPill: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  zoomPillActive: {
+    width: 38,
+    height: 38,
+    borderRadius: theme.radius.pill,
+    backgroundColor: theme.colors.card,
+  },
+  zoomPillInactive: {
+    width: 34,
+    height: 34,
+    borderRadius: theme.radius.pill,
+    backgroundColor: theme.colors.darkGlass,
+  },
+  zoomTextActive: {
+    fontFamily: theme.typography.body[700],
+    fontSize: 13,
+    color: theme.colors.text,
+  },
+  zoomTextInactive: {
+    fontFamily: theme.typography.body[600],
+    fontSize: 12,
+    color: theme.colors.white,
+  },
+  modeTrack: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 4,
+    borderRadius: theme.radius.pill,
+    backgroundColor: theme.colors.darkGlass,
+  },
+  modeSeg: {
+    paddingHorizontal: 18,
+    paddingVertical: 8,
+    borderRadius: theme.radius.pill,
+  },
+  modeSegActive: {
+    backgroundColor: theme.colors.card,
+  },
+  modeTextActive: {
+    fontFamily: theme.typography.body[700],
+    fontSize: 11.5,
+    letterSpacing: 0.9,
+    color: theme.colors.text,
+  },
+  modeTextInactive: {
+    fontFamily: theme.typography.body[700],
+    fontSize: 11.5,
+    letterSpacing: 0.9,
+    color: theme.colors.white,
+  },
+  shutterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 20,
+  },
+  sideSlot: {
+    width: 64,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  thumbButton: {
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: theme.colors.faintOnDark,
+    backgroundColor: theme.colors.darkSurface,
+  },
+  thumbImage: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  thumbEmpty: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: theme.colors.darkSurface,
+  },
+  thumbOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  thumbScrim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: theme.colors.darkBg,
+    opacity: 0.5,
+  },
+  thumbPct: {
+    fontFamily: theme.typography.body[700],
+    fontSize: 12,
+    color: theme.colors.white,
+    fontVariant: ['tabular-nums'],
+  },
   shutterOuter: {
     width: SHUTTER_SIZE,
     height: SHUTTER_SIZE,
     borderRadius: SHUTTER_SIZE / 2,
-    borderWidth: 4,
-    borderColor: colors.card,
+    borderWidth: SHUTTER_BORDER,
+    borderColor: theme.colors.strongOnDark,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.lg,
   },
   shutterAnimated: {
     alignItems: 'center',
     justifyContent: 'center',
   },
-  shutterInnerRing: {
-    width: SHUTTER_SIZE - 16,
-    height: SHUTTER_SIZE - 16,
-    borderRadius: (SHUTTER_SIZE - 16) / 2,
-    borderWidth: INNER_RING_WIDTH,
-    borderColor: colors.accentBlue,
-    alignItems: 'center',
-    justifyContent: 'center',
+  sessionText: {
+    fontFamily: theme.typography.body[600],
+    fontSize: 10.5,
+    color: theme.colors.faintOnDark,
+    textAlign: 'center',
   },
-  shutterInnerCore: {
-    width: SHUTTER_SIZE - 32,
-    height: SHUTTER_SIZE - 32,
-    borderRadius: (SHUTTER_SIZE - 32) / 2,
-    backgroundColor: colors.card,
-  },
-  modeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  modePill: {
-    minWidth: 92,
-    borderRadius: 18,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modePillActive: {
-    backgroundColor: colors.card,
-  },
-  modePillInactive: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
-  },
-  modeDisabled: {
-    opacity: 0.5,
-  },
-  modePillText: {
-    ...typography.bodySmall,
-    color: colors.card,
-    fontWeight: '600',
-    letterSpacing: 1.2,
-  },
-  modePillTextActive: {
-    color: colors.accentBlue,
-  },
-});
+}));

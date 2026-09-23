@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { Camera } from 'lucide-react-native';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -7,29 +8,30 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { PrimaryButton } from '../../components/PrimaryButton';
+import { PillInput } from '../../components/auth/PillInput';
+import { DisplayText } from '../../components/ui/DisplayText';
+import { PillButton } from '../../components/ui/PillButton';
 import type { AuthScreenProps } from '../../navigation/authTypes';
 import * as authService from '../../services/authService';
 import { useAuthStore } from '../../store/authStore';
-import { colors } from '../../theme/colors';
-import { spacing } from '../../theme/spacing';
-import { typography } from '../../theme/typography';
+import { createThemedStyles } from '../../theme/createThemedStyles';
+import { useTheme } from '../../theme/tokens';
 
 type Props = AuthScreenProps<'Login'>;
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function LoginScreen({ navigation, route }: Props) {
+  const theme = useTheme();
+  const styles = useStyles();
   const setUser = useAuthStore((s) => s.setUser);
   const paramEmail = route.params?.email ?? '';
   const [email, setEmail] = useState(paramEmail);
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -91,50 +93,34 @@ export function LoginScreen({ navigation, route }: Props) {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          <Text style={styles.title}>Welcome back</Text>
-          <Text style={styles.subtitle}>Log in with your email</Text>
-
-          <View style={styles.fieldGroup}>
-            <Text style={styles.label}>Email</Text>
-            <TextInput
-              value={email}
-              onChangeText={setEmail}
-              placeholder="you@example.com"
-              placeholderTextColor={colors.mutedText}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              autoCorrect={false}
-              textContentType="username"
-              style={styles.input}
-            />
+          <View style={styles.glyph}>
+            <Camera size={26} color={theme.colors.white} strokeWidth={2.2} />
           </View>
+          <DisplayText size={34}>Welcome back</DisplayText>
+          <Text style={styles.subtitle}>Log in to keep your captures flowing.</Text>
 
-          <View style={styles.fieldGroup}>
-            <Text style={styles.label}>Password</Text>
-            <View style={styles.passwordRow}>
-              <TextInput
-                value={password}
-                onChangeText={setPassword}
-                placeholder="Your password"
-                placeholderTextColor={colors.mutedText}
-                secureTextEntry={!showPassword}
-                autoCapitalize="none"
-                textContentType="password"
-                style={[styles.input, styles.passwordInput]}
-              />
-              <Pressable
-                onPress={() => {
-                  setShowPassword((v) => !v);
-                }}
-                hitSlop={12}
-                style={styles.eyeButton}
-                accessibilityRole="button"
-                accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
-              >
-                <Text style={styles.eyeText}>{showPassword ? 'Hide' : 'Show'}</Text>
-              </Pressable>
-            </View>
-          </View>
+          <PillInput
+            label="Email"
+            value={email}
+            onChangeText={setEmail}
+            placeholder="you@example.com"
+            autoCapitalize="none"
+            keyboardType="email-address"
+            autoCorrect={false}
+            textContentType="username"
+            containerStyle={styles.field}
+          />
+
+          <PillInput
+            label="Password"
+            value={password}
+            onChangeText={setPassword}
+            placeholder="Your password"
+            secureTextEntry
+            autoCapitalize="none"
+            textContentType="password"
+            containerStyle={styles.field}
+          />
 
           <Pressable
             accessibilityRole="button"
@@ -149,13 +135,11 @@ export function LoginScreen({ navigation, route }: Props) {
           {validationError ? <Text style={styles.errorText}>{validationError}</Text> : null}
           {submitError ? <Text style={styles.errorText}>{submitError}</Text> : null}
 
-          <PrimaryButton
-            label={loading ? 'Signing in…' : 'Log In'}
-            onPress={() => {
-              void onLogin();
-            }}
+          <PillButton
+            title={loading ? 'Logging in…' : 'Log in'}
+            height={54}
+            onPress={() => void onLogin()}
             disabled={loading || !canSubmit}
-            style={styles.primaryBtn}
           />
 
           <Pressable
@@ -164,7 +148,7 @@ export function LoginScreen({ navigation, route }: Props) {
             style={styles.footerLinkWrap}
           >
             <Text style={styles.footerMuted}>
-              Don&apos;t have an account? <Text style={styles.footerLink}>Sign up</Text>
+              New here? <Text style={styles.footerLink}>Create an account</Text>
             </Text>
           </Pressable>
         </ScrollView>
@@ -173,93 +157,64 @@ export function LoginScreen({ navigation, route }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createThemedStyles((theme) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: theme.colors.bg,
   },
   flex: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: spacing.xxl,
-    paddingBottom: spacing.xxxl,
-    paddingTop: spacing.lg,
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 40,
   },
-  title: {
-    ...typography.h1,
-    color: colors.primaryNavy,
+  glyph: {
+    width: 52,
+    height: 52,
+    borderRadius: 18,
+    backgroundColor: theme.colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
   },
   subtitle: {
-    ...typography.body,
-    color: colors.mutedText,
-    marginTop: spacing.sm,
-    marginBottom: spacing.xxl,
+    marginTop: 6,
+    marginBottom: 28,
+    fontFamily: theme.typography.body[400],
+    fontSize: 15,
+    color: theme.colors.muted,
   },
-  fieldGroup: {
-    marginBottom: spacing.lg,
-  },
-  label: {
-    ...typography.bodySmall,
-    color: colors.mutedText,
-    marginBottom: spacing.sm,
-    fontWeight: '600',
-  },
-  input: {
-    height: 52,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: 'rgba(255,255,255,0.72)',
-    paddingHorizontal: spacing.lg,
-    ...typography.body,
-    color: colors.primaryNavy,
-  },
-  passwordRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  passwordInput: {
-    flex: 1,
-    paddingRight: 72,
-  },
-  eyeButton: {
-    position: 'absolute',
-    right: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  eyeText: {
-    ...typography.bodySmall,
-    color: colors.accentBlue,
-    fontWeight: '600',
+  field: {
+    marginBottom: 16,
   },
   forgotWrap: {
     alignSelf: 'flex-end',
-    marginBottom: spacing.lg,
+    marginBottom: 18,
   },
   forgotText: {
-    ...typography.bodySmall,
-    color: colors.accentBlue,
-    fontWeight: '600',
+    fontFamily: theme.typography.body[600],
+    fontSize: 13.5,
+    color: theme.colors.accent,
   },
   errorText: {
-    ...typography.bodySmall,
-    color: colors.error,
-    marginBottom: spacing.md,
-  },
-  primaryBtn: {
-    marginTop: spacing.xs,
+    marginBottom: 12,
+    fontFamily: theme.typography.body[500],
+    fontSize: 12.5,
+    color: theme.colors.danger,
   },
   footerLinkWrap: {
-    marginTop: spacing.xxl,
+    marginTop: 28,
     alignItems: 'center',
   },
   footerMuted: {
-    ...typography.body,
-    color: colors.mutedText,
+    fontFamily: theme.typography.body[400],
+    fontSize: 14.5,
+    color: theme.colors.muted,
   },
   footerLink: {
-    color: colors.accentBlue,
-    fontWeight: '600',
+    fontFamily: theme.typography.body[700],
+    color: theme.colors.accent,
   },
-});
+}));

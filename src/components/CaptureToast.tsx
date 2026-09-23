@@ -2,9 +2,8 @@ import React, { memo, useEffect, useRef } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { colors } from '../theme/colors';
-import { spacing } from '../theme/spacing';
-import { typography } from '../theme/typography';
+import { createThemedStyles } from '../theme/createThemedStyles';
+import { useTheme } from '../theme/tokens';
 
 export type CaptureToastType = 'success' | 'error';
 
@@ -16,6 +15,8 @@ type CaptureToastProps = {
 };
 
 function CaptureToastBase({ visible, message, type, topOffset }: CaptureToastProps): React.ReactElement | null {
+  const theme = useTheme();
+  const styles = useStyles();
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(-10)).current;
   const scale = useRef(new Animated.Value(0.97)).current;
@@ -44,7 +45,7 @@ function CaptureToastBase({ visible, message, type, topOffset }: CaptureToastPro
 
   const iconName: keyof typeof Ionicons.glyphMap =
     type === 'success' ? 'checkmark-circle' : 'close-circle';
-  const iconColor = type === 'success' ? colors.success : colors.error;
+  const iconColor = type === 'success' ? theme.colors.ok : theme.colors.danger;
 
   return (
     <View pointerEvents="none" style={[styles.host, { top: topOffset }]}>
@@ -66,7 +67,7 @@ function CaptureToastBase({ visible, message, type, topOffset }: CaptureToastPro
 
 export const CaptureToast = memo(CaptureToastBase);
 
-const styles = StyleSheet.create({
+const useStyles = createThemedStyles((t) => StyleSheet.create({
   host: {
     position: 'absolute',
     left: 0,
@@ -77,15 +78,15 @@ const styles = StyleSheet.create({
   toast: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-    backgroundColor: 'rgba(16,42,67,0.76)',
+    gap: 8,
+    backgroundColor: t.colors.toastBg,
     borderRadius: 24,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
   },
   text: {
-    ...typography.bodySmall,
-    color: colors.card,
-    fontWeight: '600',
+    fontFamily: t.typography.body[600],
+    fontSize: 14,
+    color: t.colors.white,
   },
-});
+}));

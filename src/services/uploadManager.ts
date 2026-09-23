@@ -9,7 +9,49 @@ import {
   requestPresignedUrl,
   uploadFileToS3,
   uploadThumbnailToS3,
+  type UploadSource,
 } from './uploadService';
+
+/**
+ * Fired once per item the instant the backend creates its upload job (the
+ * presign returns) — before any bytes move. Carries the server-assigned
+ * displayName so the capture toast can show a real name instead of the raw
+ * fileName. `displayName` is null when the backend didn't supply one.
+ */
+export type UploadJobCreatedEvent = {
+  id: string;
+  displayName: string | null;
+  folderId: string | null;
+  source: UploadSource;
+};
+
+type JobCreatedListener = (event: UploadJobCreatedEvent) => void;
+
+const jobCreatedListeners = new Set<JobCreatedListener>();
+
+/**
+ * Subscribe to job-creation events. Returns an unsubscribe function. Used by
+ * CameraScreen to toast a just-captured item once its name is known; the screen
+ * matches events to the ids it enqueued, so unrelated (e.g. gallery) uploads are
+ * ignored. Listeners are called inside a try/catch so a throwing subscriber can
+ * never derail an in-flight upload.
+ */
+export function subscribeUploadJobCreated(listener: JobCreatedListener): () => void {
+  jobCreatedListeners.add(listener);
+  return () => {
+    jobCreatedListeners.delete(listener);
+  };
+}
+
+function emitUploadJobCreated(event: UploadJobCreatedEvent): void {
+  for (const listener of jobCreatedListeners) {
+    try {
+      listener(event);
+    } catch (error) {
+      console.error('[uploadManager] job-created listener threw', { id: event.id, error });
+    }
+  }
+}
 
 /** Max number of attempts (initial + retries) before we give up. */
 const MAX_ATTEMPTS = 3;
@@ -197,6 +239,18 @@ async function processItem(item: UploadQueueItem): Promise<void> {
     getStore().updateItem(id, {
       backendFileId: presigned.fileId,
       backendUploadId: presigned.uploadId,
+      // Persist the server-assigned name so the Uploads list (and the sync card)
+      // can show it, not just the transient job-created event below.
+      displayName: presigned.displayName,
+    });
+
+    // Job now exists on the backend and its name is known — tell any listener
+    // (the capture toast) before the bytes start moving.
+    emitUploadJobCreated({
+      id,
+      displayName: presigned.displayName,
+      folderId: item.folderId,
+      source: item.source,
     });
 
     // 2. Start the main PUT NOW, and let it run. This is the point of the whole

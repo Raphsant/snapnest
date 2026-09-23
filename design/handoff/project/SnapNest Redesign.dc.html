@@ -1,0 +1,1499 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="_ds/organic-3c722d73-6686-4901-8b44-e1ca50a8ca2c/styles.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caprasimo&family=Figtree:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+--sn-canvas:#e2d8c6;
+--sn-bg:#f5ead8; --sn-card:#fdfaf4; --sn-card2:#eee7db; --sn-text:#201e1d; --sn-muted:#645c50; --sn-faint:#a19786;
+--sn-accent:#c67139; --sn-accent-soft:#ffe1d0; --sn-accent-deep:#8c491a;
+--sn-ok:#7a8a5e; --sn-ok-soft:#e1eecc; --sn-ok-deep:#56633f;
+--sn-warn:#c08a2e; --sn-warn-soft:#f7e6c4; --sn-danger:#b23a2d;
+--sn-line:rgba(32,30,29,.10); --sn-line2:rgba(32,30,29,.16);
+--sn-r:28px; --sn-r2:18px;
+--sn-display:"Caprasimo",Georgia,serif; --sn-body:"Figtree",system-ui,sans-serif;
+--sn-dw:400; --sn-dls:-.01em;
+--sn-sh:0 3px 10px rgba(46,43,37,.14); --sn-sh-lg:0 14px 36px rgba(46,43,37,.20);
+--sn-glass:rgba(253,250,244,.88);
+}
+[data-theme="blue"]{
+--sn-canvas:#dfe6f0;
+--sn-bg:#f7f9fc; --sn-card:#ffffff; --sn-card2:#eaf1fa; --sn-text:#102a43; --sn-muted:#486581; --sn-faint:#829ab1;
+--sn-accent:#2f80ed; --sn-accent-soft:#e2ecfb; --sn-accent-deep:#1e60c9;
+--sn-ok:#27ae60; --sn-ok-soft:#dcf3e6; --sn-ok-deep:#1e7a45;
+--sn-warn:#c9971f; --sn-warn-soft:#fbf0cf; --sn-danger:#eb5757;
+--sn-line:#d9e2ec; --sn-line2:#c3cfdb;
+--sn-r:22px; --sn-r2:16px;
+--sn-display:"Figtree",system-ui,sans-serif; --sn-dw:800; --sn-dls:-.03em;
+--sn-sh:0 2px 8px rgba(16,42,67,.08); --sn-sh-lg:0 12px 30px rgba(16,42,67,.14);
+--sn-glass:rgba(255,255,255,.9);
+}
+[data-theme="hybrid"]{
+--sn-accent:#2f80ed; --sn-accent-soft:#dde9fb; --sn-accent-deep:#1e60c9;
+}
+body{margin:0;background:var(--sn-canvas);font-family:var(--sn-body);color:var(--sn-text);-webkit-font-smoothing:antialiased}
+a{color:var(--sn-accent);text-decoration:none}
+a:hover{color:var(--sn-accent-deep)}
+*{box-sizing:border-box}
+::-webkit-scrollbar{width:0;height:0}
+@keyframes snblink{0%,100%{opacity:1}50%{opacity:.25}}
+@keyframes snpulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+</style>
+</helmet>
+<div data-theme="{{ theme }}" onClick="{{ onClick }}" style="min-height:100vh;display:flex;gap:34px;padding:34px;align-items:flex-start;background:var(--sn-canvas)">
+
+  <div style="width:216px;flex:none;position:sticky;top:34px;display:flex;flex-direction:column;gap:14px">
+    <div style="font-family:var(--sn-display);font-weight:var(--sn-dw);letter-spacing:var(--sn-dls);font-size:22px;line-height:1.1">SnapNest</div>
+    <div style="font-size:12px;line-height:1.5;color:var(--sn-muted)">Redesign prototype. Tap through the phone; jump to any view below.</div>
+
+    <div style="display:flex;flex-direction:column;gap:5px;background:var(--sn-card);border:1px solid var(--sn-line);border-radius:var(--sn-r2);padding:10px">
+      <div style="font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--sn-faint);padding:2px 6px 4px">Theme</div>
+      <div style="display:flex;gap:5px">
+        <button data-act="theme:organic" style="flex:1;min-width:0;height:30px;border:1px solid var(--sn-line2);border-radius:999px;background:#f5ead8;color:#201e1d;font:600 11px var(--sn-body);cursor:pointer">Organic</button>
+        <button data-act="theme:hybrid" style="flex:1;min-width:0;height:30px;border:1px solid var(--sn-line2);border-radius:999px;background:#f5ead8;color:#1e60c9;font:600 11px var(--sn-body);cursor:pointer">Hybrid</button>
+        <button data-act="theme:blue" style="flex:1;min-width:0;height:30px;border:1px solid var(--sn-line2);border-radius:999px;background:#fff;color:#1e60c9;font:600 11px var(--sn-body);cursor:pointer">Blue</button>
+      </div>
+      <div style="font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--sn-faint);padding:8px 6px 4px">Simulate network</div>
+      <div style="display:flex;gap:5px">
+        <button data-act="net:wifi" style="flex:1;height:30px;border:1px solid var(--sn-line2);border-radius:999px;background:transparent;color:var(--sn-text);font:600 11px var(--sn-body);cursor:pointer">Wi-Fi</button>
+        <button data-act="net:cellular" style="flex:1;height:30px;border:1px solid var(--sn-line2);border-radius:999px;background:transparent;color:var(--sn-text);font:600 11px var(--sn-body);cursor:pointer">Cell</button>
+        <button data-act="net:offline" style="flex:1;height:30px;border:1px solid var(--sn-line2);border-radius:999px;background:transparent;color:var(--sn-text);font:600 11px var(--sn-body);cursor:pointer">Off</button>
+      </div>
+      <div style="font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--sn-faint);padding:8px 6px 4px">Agency membership</div>
+      <button data-act="agency:toggle" style="height:30px;border:1px solid var(--sn-line2);border-radius:999px;background:transparent;color:var(--sn-text);font:600 11px var(--sn-body);cursor:pointer">{{ agencyLabel }}</button>
+    </div>
+
+    <div data-screens="1" style="display:flex;flex-direction:column;gap:3px;background:var(--sn-card);border:1px solid var(--sn-line);border-radius:var(--sn-r2);padding:10px">
+      <div style="font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--sn-faint);padding:2px 6px 6px">Capture</div>
+      <button data-act="go:camera" style="text-align:left;border:0;background:transparent;padding:7px 8px;border-radius:10px;font:500 12.5px var(--sn-body);color:var(--sn-text);cursor:pointer">Camera</button>
+      <button data-act="go:cameraPerm" style="text-align:left;border:0;background:transparent;padding:7px 8px;border-radius:10px;font:500 12.5px var(--sn-body);color:var(--sn-text);cursor:pointer">Camera · permissions</button>
+      <div style="font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--sn-faint);padding:10px 6px 6px">Library</div>
+      <button data-act="go:folders" style="text-align:left;border:0;background:transparent;padding:7px 8px;border-radius:10px;font:500 12.5px var(--sn-body);color:var(--sn-text);cursor:pointer">Folders</button>
+      <button data-act="go:foldersEmpty" style="text-align:left;border:0;background:transparent;padding:7px 8px;border-radius:10px;font:500 12.5px var(--sn-body);color:var(--sn-text);cursor:pointer">Folders · empty</button>
+      <button data-act="go:folder" style="text-align:left;border:0;background:transparent;padding:7px 8px;border-radius:10px;font:500 12.5px var(--sn-body);color:var(--sn-text);cursor:pointer">Folder detail &amp; select</button>
+      <button data-act="go:search" style="text-align:left;border:0;background:transparent;padding:7px 8px;border-radius:10px;font:500 12.5px var(--sn-body);color:var(--sn-text);cursor:pointer">Search</button>
+      <button data-act="go:viewer" style="text-align:left;border:0;background:transparent;padding:7px 8px;border-radius:10px;font:500 12.5px var(--sn-body);color:var(--sn-text);cursor:pointer">Media viewer</button>
+      <button data-act="go:viewerVideo" style="text-align:left;border:0;background:transparent;padding:7px 8px;border-radius:10px;font:500 12.5px var(--sn-body);color:var(--sn-text);cursor:pointer">Video player</button>
+      <div style="font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--sn-faint);padding:10px 6px 6px">Uploads</div>
+      <button data-act="go:activity" style="text-align:left;border:0;background:transparent;padding:7px 8px;border-radius:10px;font:500 12.5px var(--sn-body);color:var(--sn-text);cursor:pointer">Upload queue</button>
+      <button data-act="go:activityEmpty" style="text-align:left;border:0;background:transparent;padding:7px 8px;border-radius:10px;font:500 12.5px var(--sn-body);color:var(--sn-text);cursor:pointer">Uploads · all clear</button>
+      <button data-act="go:inbox" style="text-align:left;border:0;background:transparent;padding:7px 8px;border-radius:10px;font:500 12.5px var(--sn-body);color:var(--sn-text);cursor:pointer">Notifications</button>
+      <div style="font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--sn-faint);padding:10px 6px 6px">Agency</div>
+      <button data-act="go:agency" style="text-align:left;border:0;background:transparent;padding:7px 8px;border-radius:10px;font:500 12.5px var(--sn-body);color:var(--sn-text);cursor:pointer">Workspace</button>
+      <button data-act="go:agencyFolder" style="text-align:left;border:0;background:transparent;padding:7px 8px;border-radius:10px;font:500 12.5px var(--sn-body);color:var(--sn-text);cursor:pointer">Agency folder &amp; submit</button>
+      <button data-act="go:agencyUpsell" style="text-align:left;border:0;background:transparent;padding:7px 8px;border-radius:10px;font:500 12.5px var(--sn-body);color:var(--sn-text);cursor:pointer">Not in an agency</button>
+      <div style="font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--sn-faint);padding:10px 6px 6px">Account</div>
+      <button data-act="go:settings" style="text-align:left;border:0;background:transparent;padding:7px 8px;border-radius:10px;font:500 12.5px var(--sn-body);color:var(--sn-text);cursor:pointer">Settings</button>
+      <button data-act="go:storage" style="text-align:left;border:0;background:transparent;padding:7px 8px;border-radius:10px;font:500 12.5px var(--sn-body);color:var(--sn-text);cursor:pointer">Storage</button>
+      <div style="font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--sn-faint);padding:10px 6px 6px">First run</div>
+      <button data-act="go:onboard" style="text-align:left;border:0;background:transparent;padding:7px 8px;border-radius:10px;font:500 12.5px var(--sn-body);color:var(--sn-text);cursor:pointer">Onboarding</button>
+      <button data-act="go:login" style="text-align:left;border:0;background:transparent;padding:7px 8px;border-radius:10px;font:500 12.5px var(--sn-body);color:var(--sn-text);cursor:pointer">Log in</button>
+      <button data-act="go:signup" style="text-align:left;border:0;background:transparent;padding:7px 8px;border-radius:10px;font:500 12.5px var(--sn-body);color:var(--sn-text);cursor:pointer">Sign up</button>
+      <button data-act="go:forgot" style="text-align:left;border:0;background:transparent;padding:7px 8px;border-radius:10px;font:500 12.5px var(--sn-body);color:var(--sn-text);cursor:pointer">Forgot password</button>
+    </div>
+  </div>
+
+  <div style="flex:none">
+    <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" dark="{{ isDark }}" hint-size="402px,874px">
+      <div style="position:relative;height:100%;display:flex;flex-direction:column;overflow:hidden;background:var(--sn-bg)">
+        <sc-if value="{{ stickyTop }}" hint-placeholder-val="{{ false }}">
+          <div style="height:52px;flex:none;background:var(--sn-bg)"></div>
+        </sc-if>
+        <div data-scroll="1" style="flex:1;overflow:auto;position:relative">
+
+          <sc-if value="{{ isCamera }}" hint-placeholder-val="{{ true }}">
+            <div style="position:relative;min-height:874px;background:radial-gradient(120% 80% at 50% 22%,#3c3733 0%,#221f1d 55%,#141312 100%)">
+              <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:rgba(255,255,255,.30)">
+                <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="3"></rect><circle cx="12" cy="12.5" r="3.4"></circle><path d="M8.5 6l1.4-2h4.2L15.5 6"></path></svg>
+                <div style="font:500 12px var(--sn-body);letter-spacing:.02em">Live viewfinder</div>
+              </div>
+              <sc-if value="{{ grid }}" hint-placeholder-val="{{ false }}">
+                <div style="position:absolute;inset:0;background:linear-gradient(to right,transparent 33.2%,rgba(255,255,255,.18) 33.2%,rgba(255,255,255,.18) 33.5%,transparent 33.5%,transparent 66.4%,rgba(255,255,255,.18) 66.4%,rgba(255,255,255,.18) 66.7%,transparent 66.7%),linear-gradient(to bottom,transparent 33.2%,rgba(255,255,255,.18) 33.2%,rgba(255,255,255,.18) 33.5%,transparent 33.5%,transparent 66.4%,rgba(255,255,255,.18) 66.4%,rgba(255,255,255,.18) 66.7%,transparent 66.7%)"></div>
+              </sc-if>
+
+              <div style="position:absolute;top:58px;left:14px;right:14px;display:flex;align-items:center;gap:8px">
+                <button data-act="sheet:dest" style="display:flex;align-items:center;gap:7px;height:38px;padding:0 13px;border:1px solid rgba(255,255,255,.22);border-radius:999px;background:rgba(20,19,18,.5);backdrop-filter:blur(14px);color:#fff;font:600 13px var(--sn-body);cursor:pointer;max-width:190px">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a2 2 0 012-2h3.5l2 2H19a2 2 0 012 2v7a2 2 0 01-2 2H5a2 2 0 01-2-2z"></path></svg>
+                  <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ dest }}</span>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
+                </button>
+                <div style="flex:1"></div>
+                <button data-act="tab:activity" style="display:flex;align-items:center;gap:6px;height:38px;padding:0 12px;border:1px solid rgba(255,255,255,.22);border-radius:999px;background:rgba(20,19,18,.5);backdrop-filter:blur(14px);color:#fff;font:600 12px var(--sn-body);cursor:pointer">
+                  <span style="width:8px;height:8px;border-radius:999px;background:{{ dotColor }}"></span>
+                  <span>{{ camStatusShort }}</span>
+                </button>
+                <button data-act="flip" style="width:38px;height:38px;display:flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.22);border-radius:999px;background:rgba(20,19,18,.5);backdrop-filter:blur(14px);color:#fff;cursor:pointer">
+                  <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9a7 7 0 0111.5-3.5L18 8"></path><path d="M18 4v4h-4"></path><path d="M20 15a7 7 0 01-11.5 3.5L6 16"></path><path d="M6 20v-4h4"></path></svg>
+                </button>
+              </div>
+
+              <div style="position:absolute;top:112px;right:14px;display:flex;flex-direction:column;gap:9px">
+                <button data-act="torch" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.18);border-radius:999px;background:{{ torchBg }};color:{{ torchFg }};cursor:pointer">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 3L5.5 13.5H11l-1 7.5L18.5 10H13z"></path></svg>
+                </button>
+                <button data-act="timer" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.18);border-radius:999px;background:{{ timerBg }};color:{{ timerFg }};font:700 12px var(--sn-body);cursor:pointer">
+                  <sc-if value="{{ timerOff }}" hint-placeholder-val="{{ true }}">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13.5" r="7.5"></circle><path d="M12 10v3.5"></path><path d="M9.5 3h5"></path></svg>
+                  </sc-if>
+                  <sc-if value="{{ timerOn }}" hint-placeholder-val="{{ false }}">
+                    <span>{{ timerLabel }}</span>
+                  </sc-if>
+                </button>
+                <button data-act="grid" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.18);border-radius:999px;background:{{ gridBg }};color:{{ gridFg }};cursor:pointer">
+                  <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"></rect><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"></rect><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"></rect><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"></rect></svg>
+                </button>
+              </div>
+
+              <sc-if value="{{ recording }}" hint-placeholder-val="{{ false }}">
+                <div style="position:absolute;top:112px;left:0;right:0;display:flex;justify-content:center">
+                  <div style="display:flex;align-items:center;gap:8px;height:34px;padding:0 14px;border-radius:999px;background:rgba(178,58,45,.92);color:#fff;font:700 13px var(--sn-body);letter-spacing:.02em">
+                    <span style="width:8px;height:8px;border-radius:999px;background:#fff;animation:snblink 1.2s infinite"></span>
+                    <span>{{ elapsedLabel }}</span>
+                  </div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ counting }}" hint-placeholder-val="{{ false }}">
+                <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(20,19,18,.35)">
+                  <div style="font-family:var(--sn-display);font-weight:var(--sn-dw);font-size:96px;color:#fff;line-height:1">{{ countdown }}</div>
+                </div>
+              </sc-if>
+
+              <div style="position:absolute;left:0;right:0;bottom:130px;display:flex;flex-direction:column;align-items:center;gap:16px">
+                <div style="display:flex;gap:6px;align-items:center">
+                  <button data-act="zoom:0.5" style="width:34px;height:34px;border-radius:999px;border:0;background:rgba(20,19,18,.5);color:rgba(255,255,255,.8);font:700 11px var(--sn-body);cursor:pointer">.5</button>
+                  <button data-act="zoom:1" style="width:38px;height:38px;border-radius:999px;border:0;background:rgba(253,250,244,.92);color:#201e1d;font:800 12px var(--sn-body);cursor:pointer">1x</button>
+                  <button data-act="zoom:2" style="width:34px;height:34px;border-radius:999px;border:0;background:rgba(20,19,18,.5);color:rgba(255,255,255,.8);font:700 11px var(--sn-body);cursor:pointer">2</button>
+                </div>
+                <div style="display:flex;gap:4px;padding:4px;border-radius:999px;background:rgba(20,19,18,.5);backdrop-filter:blur(14px)">
+                  <button data-act="mode:photo" style="height:32px;padding:0 18px;border:0;border-radius:999px;background:{{ photoBg }};color:{{ photoFg }};font:700 11.5px var(--sn-body);letter-spacing:.08em;cursor:pointer">PHOTO</button>
+                  <button data-act="mode:video" style="height:32px;padding:0 18px;border:0;border-radius:999px;background:{{ videoBg }};color:{{ videoFg }};font:700 11.5px var(--sn-body);letter-spacing:.08em;cursor:pointer">VIDEO</button>
+                </div>
+                <div style="display:flex;align-items:center;gap:34px">
+                  <button data-act="go:folder" style="width:52px;height:52px;flex:none;border-radius:16px;border:2px solid rgba(255,255,255,.55);background:linear-gradient(150deg,#ffd9c0,#c98d5e);cursor:pointer;position:relative;overflow:hidden;padding:0">
+                    <sc-if value="{{ uploadingNow }}" hint-placeholder-val="{{ false }}">
+                      <span style="position:absolute;inset:0;background:rgba(20,19,18,.45);display:flex;align-items:center;justify-content:center;color:#fff;font:700 10px var(--sn-body)">{{ pctLabel }}</span>
+                    </sc-if>
+                  </button>
+                  <button data-act="shoot" style="width:82px;height:82px;flex:none;border-radius:999px;border:4px solid rgba(255,255,255,.9);background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0">
+                    <span style="width:{{ shutterSize }};height:{{ shutterSize }};border-radius:{{ shutterRadius }};background:{{ shutterFill }};display:block;transition:all .18s ease"></span>
+                  </button>
+                  <div style="width:52px;height:52px;flex:none;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.55);font:600 10.5px var(--sn-body);text-align:center;line-height:1.25">{{ shotsLabel }}</div>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isCameraPerm }}" hint-placeholder-val="{{ false }}">
+            <div style="position:relative;min-height:874px;background:#1b1917;padding:0 22px;display:flex;flex-direction:column;justify-content:center;gap:22px">
+              <div style="width:76px;height:76px;border-radius:26px;background:rgba(198,113,57,.18);display:flex;align-items:center;justify-content:center;color:var(--sn-accent)">
+                <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="3"></rect><circle cx="12" cy="12.5" r="3.4"></circle><path d="M8.5 6l1.4-2h4.2L15.5 6"></path></svg>
+              </div>
+              <div>
+                <div style="font-family:var(--sn-display);font-weight:var(--sn-dw);letter-spacing:var(--sn-dls);font-size:30px;line-height:1.15;color:#fdfaf4">Let SnapNest see<br>what you see</div>
+                <div style="font:400 15px/1.55 var(--sn-body);color:rgba(253,250,244,.66);margin-top:12px;text-wrap:pretty">Camera and microphone are needed to shoot. Photo library access is optional — it only keeps a copy on your phone.</div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:9px">
+                <div style="display:flex;gap:11px;align-items:center;padding:13px 15px;border-radius:var(--sn-r2);background:rgba(253,250,244,.07)">
+                  <span style="width:26px;height:26px;border-radius:999px;background:var(--sn-ok);display:flex;align-items:center;justify-content:center;color:#fff"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-10"></path></svg></span>
+                  <div style="flex:1"><div style="font:600 14px var(--sn-body);color:#fdfaf4">Camera</div><div style="font:400 12px var(--sn-body);color:rgba(253,250,244,.55)">Allowed</div></div>
+                </div>
+                <div style="display:flex;gap:11px;align-items:center;padding:13px 15px;border-radius:var(--sn-r2);background:rgba(253,250,244,.07)">
+                  <span style="width:26px;height:26px;border-radius:999px;border:2px solid rgba(253,250,244,.3);display:block"></span>
+                  <div style="flex:1"><div style="font:600 14px var(--sn-body);color:#fdfaf4">Microphone</div><div style="font:400 12px var(--sn-body);color:rgba(253,250,244,.55)">Needed for video sound</div></div>
+                </div>
+                <div style="display:flex;gap:11px;align-items:center;padding:13px 15px;border-radius:var(--sn-r2);background:rgba(253,250,244,.07)">
+                  <span style="width:26px;height:26px;border-radius:999px;border:2px solid rgba(253,250,244,.3);display:block"></span>
+                  <div style="flex:1"><div style="font:600 14px var(--sn-body);color:#fdfaf4">Photo library</div><div style="font:400 12px var(--sn-body);color:rgba(253,250,244,.55)">Optional — uploads work without it</div></div>
+                </div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:10px">
+                <button data-act="go:camera" style="height:52px;border:0;border-radius:999px;background:var(--sn-accent);color:#fff;font:700 15.5px var(--sn-body);cursor:pointer">Allow access</button>
+                <button data-act="go:camera" style="height:52px;border:0;border-radius:999px;background:transparent;color:rgba(253,250,244,.7);font:600 14.5px var(--sn-body);cursor:pointer">Not now</button>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isFolders }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:58px 0 150px">
+              <div style="padding:0 20px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+                <div>
+                  <div style="font:500 13px var(--sn-body);color:var(--sn-muted)">Hi Rafael</div>
+                  <div style="font-family:var(--sn-display);font-weight:var(--sn-dw);letter-spacing:var(--sn-dls);font-size:34px;line-height:1.1;margin-top:2px">Folders</div>
+                </div>
+                <div style="display:flex;gap:8px;padding-top:8px">
+                  <button data-act="go:inbox" style="width:38px;height:38px;border:1px solid var(--sn-line);border-radius:999px;background:var(--sn-card);display:flex;align-items:center;justify-content:center;color:var(--sn-text);cursor:pointer;position:relative">
+                    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16v-5a6 6 0 1112 0v5l2 3H4z"></path><path d="M10 22h4"></path></svg>
+                    <span style="position:absolute;top:7px;right:8px;width:8px;height:8px;border-radius:999px;background:var(--sn-accent);border:1.5px solid var(--sn-card)"></span>
+                  </button>
+                  <button data-act="sheet:close" style="width:38px;height:38px;border:1px solid var(--sn-line);border-radius:999px;background:var(--sn-card);display:flex;align-items:center;justify-content:center;color:var(--sn-text);cursor:pointer">
+                    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg>
+                  </button>
+                </div>
+              </div>
+
+              <div style="padding:16px 20px 0">
+                <button data-act="go:search" style="width:100%;height:44px;display:flex;align-items:center;gap:9px;padding:0 15px;border:1px solid var(--sn-line);border-radius:999px;background:var(--sn-card);color:var(--sn-faint);font:400 15px var(--sn-body);cursor:pointer;text-align:left">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4.2-4.2"></path></svg>
+                  <span>Search captures and folders</span>
+                </button>
+              </div>
+
+              <div style="padding:14px 20px 0">
+                <div style="border-radius:var(--sn-r);border:1px solid var(--sn-line);background:var(--sn-card);box-shadow:var(--sn-sh);overflow:hidden">
+                  <sc-if value="{{ statusOk }}" hint-placeholder-val="{{ true }}">
+                    <div style="display:flex;align-items:center;gap:13px;padding:16px 17px">
+                      <span style="width:42px;height:42px;flex:none;border-radius:999px;background:var(--sn-ok-soft);display:flex;align-items:center;justify-content:center;color:var(--sn-ok-deep)"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-10"></path></svg></span>
+                      <div style="flex:1;min-width:0"><div style="font:700 15.5px var(--sn-body)">{{ statusTitle }}</div><div style="font:400 12.5px var(--sn-body);color:var(--sn-muted);margin-top:2px">{{ statusSub }}</div></div>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ statusUp }}" hint-placeholder-val="{{ false }}">
+                    <div style="padding:16px 17px">
+                      <div style="display:flex;align-items:center;gap:13px">
+                        <span style="width:42px;height:42px;flex:none;border-radius:999px;background:var(--sn-accent-soft);display:flex;align-items:center;justify-content:center;color:var(--sn-accent-deep)"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V9"></path><path d="M8 12.5L12 8.5l4 4"></path><path d="M6.5 18a4 4 0 01.4-8 6 6 0 0111.3 1.2A3.5 3.5 0 0117.5 18"></path></svg></span>
+                        <div style="flex:1;min-width:0"><div style="font:700 15.5px var(--sn-body)">{{ statusTitle }}</div><div style="font:400 12.5px var(--sn-body);color:var(--sn-muted);margin-top:2px">{{ statusSub }}</div></div>
+                        <button data-act="go:activity" style="border:0;background:transparent;color:var(--sn-accent);font:600 13.5px var(--sn-body);cursor:pointer">Details</button>
+                      </div>
+                      <div style="height:6px;border-radius:999px;background:var(--sn-card2);margin-top:13px;overflow:hidden"><div style="height:100%;border-radius:999px;background:var(--sn-accent);width:{{ barPct }};transition:width .3s linear"></div></div>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ statusWait }}" hint-placeholder-val="{{ false }}">
+                    <div style="padding:16px 17px">
+                      <div style="display:flex;align-items:center;gap:13px">
+                        <span style="width:42px;height:42px;flex:none;border-radius:999px;background:var(--sn-warn-soft);display:flex;align-items:center;justify-content:center;color:var(--sn-warn)"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"></path><path d="M6.5 18a4 4 0 01.4-8 6 6 0 019.2-2"></path><path d="M18.5 11.5A3.5 3.5 0 0117.5 18h-6"></path></svg></span>
+                        <div style="flex:1;min-width:0"><div style="font:700 15.5px var(--sn-body)">{{ statusTitle }}</div><div style="font:400 12.5px/1.45 var(--sn-body);color:var(--sn-muted);margin-top:2px">{{ statusSub }}</div></div>
+                      </div>
+                      <div style="display:flex;gap:8px;margin-top:13px">
+                        <button data-act="retry" style="flex:1;height:38px;border:0;border-radius:999px;background:var(--sn-accent);color:#fff;font:600 13.5px var(--sn-body);cursor:pointer">Upload now anyway</button>
+                        <button data-act="go:activity" style="height:38px;padding:0 15px;border:1px solid var(--sn-line2);border-radius:999px;background:transparent;color:var(--sn-text);font:600 13.5px var(--sn-body);cursor:pointer">See queue</button>
+                      </div>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ statusOff }}" hint-placeholder-val="{{ false }}">
+                    <div style="display:flex;align-items:center;gap:13px;padding:16px 17px">
+                      <span style="width:42px;height:42px;flex:none;border-radius:999px;background:var(--sn-card2);display:flex;align-items:center;justify-content:center;color:var(--sn-muted)"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"></path><path d="M6.5 18a4 4 0 01.4-8 6 6 0 019.2-2"></path><path d="M18.5 11.5A3.5 3.5 0 0117.5 18h-6"></path></svg></span>
+                      <div style="flex:1;min-width:0"><div style="font:700 15.5px var(--sn-body)">{{ statusTitle }}</div><div style="font:400 12.5px var(--sn-body);color:var(--sn-muted);margin-top:2px">{{ statusSub }}</div></div>
+                    </div>
+                  </sc-if>
+                </div>
+              </div>
+
+              <div style="padding:22px 20px 8px;font:700 11px var(--sn-body);letter-spacing:.09em;text-transform:uppercase;color:var(--sn-faint)">Pinned</div>
+              <div style="padding:0 20px">
+                <button data-act="go:folder" style="width:100%;display:flex;align-items:center;gap:13px;padding:13px 15px;border:1px solid var(--sn-line);border-radius:var(--sn-r2);background:var(--sn-card);cursor:pointer;text-align:left">
+                  <span style="width:44px;height:44px;flex:none;border-radius:14px;background:var(--sn-accent-soft);display:flex;align-items:center;justify-content:center;color:var(--sn-accent-deep)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 13l2-7h12l2 7"></path><path d="M4 13h4l1 3h6l1-3h4v5a2 2 0 01-2 2H6a2 2 0 01-2-2z"></path></svg></span>
+                  <span style="flex:1;min-width:0"><span style="display:block;font:600 15.5px var(--sn-body);color:var(--sn-text)">Unfiled</span><span style="display:block;font:400 12.5px var(--sn-body);color:var(--sn-muted);margin-top:2px">46 files · file them any time</span></span>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--sn-faint)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>
+                </button>
+              </div>
+
+              <div style="padding:22px 20px 8px;display:flex;align-items:baseline;justify-content:space-between">
+                <div style="font:700 11px var(--sn-body);letter-spacing:.09em;text-transform:uppercase;color:var(--sn-faint)">Your folders</div>
+                <div style="font:500 12px var(--sn-body);color:var(--sn-faint)">Recently used</div>
+              </div>
+              <div style="padding:0 20px;display:flex;flex-direction:column;gap:10px">
+                <button data-act="go:folder" style="width:100%;display:flex;align-items:center;gap:13px;padding:12px 14px;border:1px solid var(--sn-line);border-radius:var(--sn-r2);background:var(--sn-card);box-shadow:var(--sn-sh);cursor:pointer;text-align:left">
+                  <span style="display:flex;flex:none">
+                    <span style="width:46px;height:46px;border-radius:14px;background:linear-gradient(150deg,#ffd9c0,#c98d5e);border:2px solid var(--sn-card)"></span>
+                    <span style="width:46px;height:46px;border-radius:14px;background:linear-gradient(140deg,#cdd8c0,#9aa885);border:2px solid var(--sn-card);margin-left:-24px"></span>
+                    <span style="width:46px;height:46px;border-radius:14px;background:linear-gradient(155deg,#d7c4b0,#8f7a68);border:2px solid var(--sn-card);margin-left:-24px"></span>
+                  </span>
+                  <span style="flex:1;min-width:0">
+                    <span style="display:block;font:600 15.5px var(--sn-body);color:var(--sn-text)">Evento Miami</span>
+                    <span style="display:flex;align-items:center;gap:6px;font:400 12.5px var(--sn-body);color:var(--sn-muted);margin-top:3px">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--sn-ok)" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-10"></path></svg>
+                      18 files · 2 min ago
+                    </span>
+                  </span>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--sn-faint)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>
+                </button>
+                <button data-act="go:folder" style="width:100%;display:flex;align-items:center;gap:13px;padding:12px 14px;border:1px solid var(--sn-line);border-radius:var(--sn-r2);background:var(--sn-card);box-shadow:var(--sn-sh);cursor:pointer;text-align:left">
+                  <span style="display:flex;flex:none">
+                    <span style="width:46px;height:46px;border-radius:14px;background:linear-gradient(120deg,#f1c9a5,#c98d5e);border:2px solid var(--sn-card)"></span>
+                    <span style="width:46px;height:46px;border-radius:14px;background:linear-gradient(165deg,#f3ddc4,#d3a36f);border:2px solid var(--sn-card);margin-left:-24px"></span>
+                    <span style="width:46px;height:46px;border-radius:14px;background:linear-gradient(145deg,#cfd9c6,#8fa073);border:2px solid var(--sn-card);margin-left:-24px"></span>
+                  </span>
+                  <span style="flex:1;min-width:0">
+                    <span style="display:block;font:600 15.5px var(--sn-body);color:var(--sn-text)">Ads · Q3</span>
+                    <span style="display:flex;align-items:center;gap:6px;font:400 12.5px var(--sn-body);color:var(--sn-muted);margin-top:3px">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--sn-ok)" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-10"></path></svg>
+                      4 files · yesterday
+                    </span>
+                  </span>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--sn-faint)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>
+                </button>
+                <button data-act="go:folder" style="width:100%;display:flex;align-items:center;gap:13px;padding:12px 14px;border:1px solid var(--sn-line);border-radius:var(--sn-r2);background:var(--sn-card);box-shadow:var(--sn-sh);cursor:pointer;text-align:left">
+                  <span style="display:flex;flex:none">
+                    <span style="width:46px;height:46px;border-radius:14px;background:linear-gradient(155deg,#d7c4b0,#8f7a68);border:2px solid var(--sn-card)"></span>
+                    <span style="width:46px;height:46px;border-radius:14px;background:linear-gradient(135deg,#e3d2b8,#a8927a);border:2px solid var(--sn-card);margin-left:-24px"></span>
+                    <span style="width:46px;height:46px;border-radius:14px;background:linear-gradient(175deg,#e7cdb6,#bb8f6c);border:2px solid var(--sn-card);margin-left:-24px"></span>
+                  </span>
+                  <span style="flex:1;min-width:0">
+                    <span style="display:block;font:600 15.5px var(--sn-body);color:var(--sn-text)">Product flat lays</span>
+                    <span style="display:flex;align-items:center;gap:6px;font:400 12.5px var(--sn-body);color:var(--sn-muted);margin-top:3px">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--sn-ok)" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-10"></path></svg>
+                      23 files · last week
+                    </span>
+                  </span>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--sn-faint)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>
+                </button>
+              </div>
+              <div style="padding:18px 20px 0;font:400 12px/1.5 var(--sn-body);color:var(--sn-faint)">Swipe a folder to rename, pin or delete. Long-press to move captures between folders.</div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isFoldersEmpty }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:58px 20px 150px">
+              <div style="font:500 13px var(--sn-body);color:var(--sn-muted)">Hi Rafael</div>
+              <div style="font-family:var(--sn-display);font-weight:var(--sn-dw);letter-spacing:var(--sn-dls);font-size:34px;line-height:1.1;margin-top:2px">Folders</div>
+              <div style="margin-top:80px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px">
+                <div style="position:relative;width:150px;height:150px;margin-bottom:12px">
+                  <span style="position:absolute;inset:0;border-radius:999px;background:var(--sn-accent-soft)"></span>
+                  <span style="position:absolute;left:26px;top:44px;width:98px;height:74px;border-radius:20px;background:var(--sn-card);border:1px solid var(--sn-line);box-shadow:var(--sn-sh)"></span>
+                  <span style="position:absolute;left:40px;top:30px;width:70px;height:22px;border-radius:12px 12px 0 0;background:var(--sn-accent);opacity:.35"></span>
+                </div>
+                <div style="font-family:var(--sn-display);font-weight:var(--sn-dw);letter-spacing:var(--sn-dls);font-size:24px">No folders yet</div>
+                <div style="font:400 14.5px/1.55 var(--sn-body);color:var(--sn-muted);max-width:280px;text-wrap:pretty">Folders are how your editors find things. Make one per shoot, client or campaign — captures get named after it automatically.</div>
+                <button data-act="go:folders" style="margin-top:16px;height:50px;padding:0 26px;border:0;border-radius:999px;background:var(--sn-accent);color:#fff;font:700 15px var(--sn-body);cursor:pointer">Create your first folder</button>
+                <button data-act="tab:camera" style="height:44px;padding:0 20px;border:0;border-radius:999px;background:transparent;color:var(--sn-accent);font:600 14.5px var(--sn-body);cursor:pointer">Or just start shooting</button>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isFolder }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:0 0 150px">
+              <div style="position:sticky;top:0;z-index:1;background:var(--sn-glass);backdrop-filter:blur(20px);border-bottom:1px solid var(--sn-line);padding:8px 14px 10px">
+                <div style="display:flex;align-items:center;gap:6px">
+                  <button data-act="go:folders" style="display:flex;align-items:center;gap:2px;height:38px;padding:0 8px 0 2px;border:0;background:transparent;color:var(--sn-accent);font:600 15.5px var(--sn-body);cursor:pointer">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg>Folders
+                  </button>
+                  <div style="flex:1"></div>
+                  <button data-act="select" style="height:38px;padding:0 10px;border:0;background:transparent;color:var(--sn-accent);font:600 15.5px var(--sn-body);cursor:pointer">{{ selectCta }}</button>
+                </div>
+                <div style="padding:6px 6px 0">
+                  <div style="font-family:var(--sn-display);font-weight:var(--sn-dw);letter-spacing:var(--sn-dls);font-size:30px;line-height:1.15">Evento Miami</div>
+                  <div style="display:flex;align-items:center;gap:8px;margin-top:6px;font:400 12.5px var(--sn-body);color:var(--sn-muted)">
+                    <span>18 items · 12 photos, 6 videos</span>
+                    <span style="width:3px;height:3px;border-radius:999px;background:var(--sn-faint)"></span>
+                    <span style="display:flex;align-items:center;gap:4px;color:var(--sn-ok-deep);font-weight:600"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-10"></path></svg>All backed up</span>
+                  </div>
+                  <div style="display:flex;gap:7px;margin-top:12px;overflow:auto;padding-bottom:2px">
+                    <button data-act="filter:all" style="height:32px;padding:0 14px;border:1px solid var(--sn-line2);border-radius:999px;background:{{ fAllBg }};color:{{ fAllFg }};font:600 12.5px var(--sn-body);white-space:nowrap;cursor:pointer">All 18</button>
+                    <button data-act="filter:photos" style="height:32px;padding:0 14px;border:1px solid var(--sn-line2);border-radius:999px;background:{{ fPhotoBg }};color:{{ fPhotoFg }};font:600 12.5px var(--sn-body);white-space:nowrap;cursor:pointer">Photos</button>
+                    <button data-act="filter:videos" style="height:32px;padding:0 14px;border:1px solid var(--sn-line2);border-radius:999px;background:{{ fVideoBg }};color:{{ fVideoFg }};font:600 12.5px var(--sn-body);white-space:nowrap;cursor:pointer">Videos</button>
+                    <button data-act="filter:pending" style="height:32px;padding:0 14px;border:1px solid var(--sn-line2);border-radius:999px;background:{{ fPendBg }};color:{{ fPendFg }};font:600 12.5px var(--sn-body);white-space:nowrap;cursor:pointer">Not backed up</button>
+                  </div>
+                </div>
+              </div>
+
+              <div style="padding:12px 14px 6px;font:700 11px var(--sn-body);letter-spacing:.09em;text-transform:uppercase;color:var(--sn-faint)">Today · 24 July</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:3px;padding:0 3px">
+                <button data-act="sel:1" style="position:relative;aspect-ratio:1;border:0;padding:0;border-radius:4px;overflow:hidden;background:linear-gradient(150deg,#ffd9c0,#c98d5e);cursor:pointer">
+                  <span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.5)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"></rect><circle cx="9" cy="10" r="1.6"></circle><path d="M4 17l5-5 3.5 3.5 3-3L20 17"></path></svg></span>
+                  <span style="position:absolute;left:5px;bottom:5px;width:16px;height:16px;border-radius:999px;background:rgba(122,138,94,.95);display:flex;align-items:center;justify-content:center;color:#fff"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-10"></path></svg></span>
+                  <sc-if value="{{ s1 }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;inset:0;background:rgba(198,113,57,.32);border:3px solid var(--sn-accent);border-radius:4px"></span><span style="position:absolute;right:5px;top:5px;width:20px;height:20px;border-radius:999px;background:var(--sn-accent);display:flex;align-items:center;justify-content:center;color:#fff"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-10"></path></svg></span></sc-if>
+                </button>
+                <button data-act="sel:2" style="position:relative;aspect-ratio:1;border:0;padding:0;border-radius:4px;overflow:hidden;background:linear-gradient(140deg,#cdd8c0,#9aa885);cursor:pointer">
+                  <span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.5)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"></rect><circle cx="9" cy="10" r="1.6"></circle><path d="M4 17l5-5 3.5 3.5 3-3L20 17"></path></svg></span>
+                  <span style="position:absolute;left:5px;bottom:5px;width:16px;height:16px;border-radius:999px;background:rgba(122,138,94,.95);display:flex;align-items:center;justify-content:center;color:#fff"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-10"></path></svg></span>
+                  <sc-if value="{{ s2 }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;inset:0;background:rgba(198,113,57,.32);border:3px solid var(--sn-accent);border-radius:4px"></span><span style="position:absolute;right:5px;top:5px;width:20px;height:20px;border-radius:999px;background:var(--sn-accent);display:flex;align-items:center;justify-content:center;color:#fff"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-10"></path></svg></span></sc-if>
+                </button>
+                <button data-act="sel:3" style="position:relative;aspect-ratio:1;border:0;padding:0;border-radius:4px;overflow:hidden;background:linear-gradient(160deg,#c9cfd6,#9aa4b0);cursor:pointer">
+                  <span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.6)"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M9 6l10 6-10 6z"></path></svg></span>
+                  <span style="position:absolute;left:6px;top:6px;padding:2px 6px;border-radius:999px;background:rgba(20,19,18,.55);color:#fff;font:600 9.5px var(--sn-body)">0:12</span>
+                  <span style="position:absolute;left:5px;bottom:5px;width:16px;height:16px;border-radius:999px;background:rgba(122,138,94,.95);display:flex;align-items:center;justify-content:center;color:#fff"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-10"></path></svg></span>
+                  <sc-if value="{{ s3 }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;inset:0;background:rgba(198,113,57,.32);border:3px solid var(--sn-accent);border-radius:4px"></span><span style="position:absolute;right:5px;top:5px;width:20px;height:20px;border-radius:999px;background:var(--sn-accent);display:flex;align-items:center;justify-content:center;color:#fff"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-10"></path></svg></span></sc-if>
+                </button>
+                <button data-act="sel:4" style="position:relative;aspect-ratio:1;border:0;padding:0;border-radius:4px;overflow:hidden;background:linear-gradient(120deg,#f1c9a5,#c98d5e);cursor:pointer">
+                  <span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.5)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"></rect><circle cx="9" cy="10" r="1.6"></circle><path d="M4 17l5-5 3.5 3.5 3-3L20 17"></path></svg></span>
+                  <span style="position:absolute;left:5px;bottom:5px;width:16px;height:16px;border-radius:999px;background:rgba(122,138,94,.95);display:flex;align-items:center;justify-content:center;color:#fff"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-10"></path></svg></span>
+                  <sc-if value="{{ s4 }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;inset:0;background:rgba(198,113,57,.32);border:3px solid var(--sn-accent);border-radius:4px"></span><span style="position:absolute;right:5px;top:5px;width:20px;height:20px;border-radius:999px;background:var(--sn-accent);display:flex;align-items:center;justify-content:center;color:#fff"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-10"></path></svg></span></sc-if>
+                </button>
+                <button data-act="sel:5" style="position:relative;aspect-ratio:1;border:0;padding:0;border-radius:4px;overflow:hidden;background:linear-gradient(135deg,#e3d2b8,#a8927a);cursor:pointer">
+                  <span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.5)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"></rect><circle cx="9" cy="10" r="1.6"></circle><path d="M4 17l5-5 3.5 3.5 3-3L20 17"></path></svg></span>
+                  <span style="position:absolute;left:5px;bottom:5px;width:16px;height:16px;border-radius:999px;background:rgba(122,138,94,.95);display:flex;align-items:center;justify-content:center;color:#fff"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-10"></path></svg></span>
+                  <sc-if value="{{ s5 }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;inset:0;background:rgba(198,113,57,.32);border:3px solid var(--sn-accent);border-radius:4px"></span><span style="position:absolute;right:5px;top:5px;width:20px;height:20px;border-radius:999px;background:var(--sn-accent);display:flex;align-items:center;justify-content:center;color:#fff"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-10"></path></svg></span></sc-if>
+                </button>
+                <button data-act="sel:6" style="position:relative;aspect-ratio:1;border:0;padding:0;border-radius:4px;overflow:hidden;background:linear-gradient(145deg,#cfd9c6,#8fa073);cursor:pointer">
+                  <span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.6)"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M9 6l10 6-10 6z"></path></svg></span>
+                  <span style="position:absolute;left:6px;top:6px;padding:2px 6px;border-radius:999px;background:rgba(20,19,18,.55);color:#fff;font:600 9.5px var(--sn-body)">1:04</span>
+                  <span style="position:absolute;left:5px;bottom:5px;width:16px;height:16px;border-radius:999px;background:rgba(122,138,94,.95);display:flex;align-items:center;justify-content:center;color:#fff"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-10"></path></svg></span>
+                  <sc-if value="{{ s6 }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;inset:0;background:rgba(198,113,57,.32);border:3px solid var(--sn-accent);border-radius:4px"></span><span style="position:absolute;right:5px;top:5px;width:20px;height:20px;border-radius:999px;background:var(--sn-accent);display:flex;align-items:center;justify-content:center;color:#fff"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-10"></path></svg></span></sc-if>
+                </button>
+              </div>
+
+              <div style="padding:16px 14px 6px;font:700 11px var(--sn-body);letter-spacing:.09em;text-transform:uppercase;color:var(--sn-faint)">Yesterday</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:3px;padding:0 3px">
+                <button data-act="go:viewer" style="position:relative;aspect-ratio:1;border:0;padding:0;border-radius:4px;overflow:hidden;background:linear-gradient(200deg,#e8dcc8,#bfa98c);cursor:pointer">
+                  <span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.5)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"></rect><circle cx="9" cy="10" r="1.6"></circle><path d="M4 17l5-5 3.5 3.5 3-3L20 17"></path></svg></span>
+                  <span style="position:absolute;left:5px;bottom:5px;width:16px;height:16px;border-radius:999px;background:rgba(122,138,94,.95);display:flex;align-items:center;justify-content:center;color:#fff"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-10"></path></svg></span>
+                </button>
+                <button data-act="go:viewer" style="position:relative;aspect-ratio:1;border:0;padding:0;border-radius:4px;overflow:hidden;background:linear-gradient(165deg,#f3ddc4,#d3a36f);cursor:pointer">
+                  <span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.5)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"></rect><circle cx="9" cy="10" r="1.6"></circle><path d="M4 17l5-5 3.5 3.5 3-3L20 17"></path></svg></span>
+                  <span style="position:absolute;left:5px;bottom:5px;width:16px;height:16px;border-radius:999px;background:rgba(122,138,94,.95);display:flex;align-items:center;justify-content:center;color:#fff"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-10"></path></svg></span>
+                </button>
+                <button data-act="go:viewerVideo" style="position:relative;aspect-ratio:1;border:0;padding:0;border-radius:4px;overflow:hidden;background:linear-gradient(175deg,#e7cdb6,#bb8f6c);cursor:pointer">
+                  <span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.6)"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M9 6l10 6-10 6z"></path></svg></span>
+                  <span style="position:absolute;left:6px;top:6px;padding:2px 6px;border-radius:999px;background:rgba(20,19,18,.55);color:#fff;font:600 9.5px var(--sn-body)">0:31</span>
+                  <span style="position:absolute;left:5px;bottom:5px;width:16px;height:16px;border-radius:999px;background:rgba(122,138,94,.95);display:flex;align-items:center;justify-content:center;color:#fff"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-10"></path></svg></span>
+                </button>
+                <button data-act="go:viewer" style="position:relative;aspect-ratio:1;border:0;padding:0;border-radius:4px;overflow:hidden;background:linear-gradient(155deg,#d7c4b0,#8f7a68);cursor:pointer">
+                  <span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.5)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"></rect><circle cx="9" cy="10" r="1.6"></circle><path d="M4 17l5-5 3.5 3.5 3-3L20 17"></path></svg></span>
+                  <span style="position:absolute;left:5px;bottom:5px;width:16px;height:16px;border-radius:999px;background:rgba(122,138,94,.95);display:flex;align-items:center;justify-content:center;color:#fff"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-10"></path></svg></span>
+                </button>
+                <button data-act="go:viewer" style="position:relative;aspect-ratio:1;border:0;padding:0;border-radius:4px;overflow:hidden;background:linear-gradient(130deg,#d8cfc2,#b3a794);cursor:pointer">
+                  <span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.5)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"></rect><circle cx="9" cy="10" r="1.6"></circle><path d="M4 17l5-5 3.5 3.5 3-3L20 17"></path></svg></span>
+                  <span style="position:absolute;left:5px;bottom:5px;width:16px;height:16px;border-radius:999px;background:rgba(122,138,94,.95);display:flex;align-items:center;justify-content:center;color:#fff"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-10"></path></svg></span>
+                </button>
+                <button data-act="go:viewer" style="position:relative;aspect-ratio:1;border:0;padding:0;border-radius:4px;overflow:hidden;background:linear-gradient(150deg,#dcd3c4,#c0b6a5);cursor:pointer">
+                  <span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.5)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"></rect><circle cx="9" cy="10" r="1.6"></circle><path d="M4 17l5-5 3.5 3.5 3-3L20 17"></path></svg></span>
+                  <span style="position:absolute;left:5px;bottom:5px;width:16px;height:16px;border-radius:999px;background:rgba(122,138,94,.95);display:flex;align-items:center;justify-content:center;color:#fff"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-10"></path></svg></span>
+                </button>
+              </div>
+            </div>
+
+            <sc-if value="{{ selectMode }}" hint-placeholder-val="{{ false }}">
+              <div style="position:absolute;left:14px;right:14px;bottom:26px;z-index:50;border-radius:26px;background:var(--sn-glass);backdrop-filter:blur(20px);border:1px solid var(--sn-line);box-shadow:var(--sn-sh-lg);padding:12px 14px">
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:0 2px 10px">
+                  <div style="font:700 14px var(--sn-body)">{{ selLabel }}</div>
+                  <button data-act="selall" style="border:0;background:transparent;color:var(--sn-accent);font:600 13px var(--sn-body);cursor:pointer">Select all</button>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px">
+                  <button data-act="sheet:close" style="display:flex;flex-direction:column;align-items:center;gap:5px;padding:9px 0;border:0;border-radius:16px;background:var(--sn-card2);color:var(--sn-text);font:600 11px var(--sn-body);cursor:pointer">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a2 2 0 012-2h3.5l2 2H19a2 2 0 012 2v7a2 2 0 01-2 2H5a2 2 0 01-2-2z"></path></svg>Move
+                  </button>
+                  <button data-act="sheet:close" style="display:flex;flex-direction:column;align-items:center;gap:5px;padding:9px 0;border:0;border-radius:16px;background:var(--sn-card2);color:var(--sn-text);font:600 11px var(--sn-body);cursor:pointer">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4"></path><path d="M8 8l4-4 4 4"></path><path d="M5 15v3a2 2 0 002 2h10a2 2 0 002-2v-3"></path></svg>Share
+                  </button>
+                  <button data-act="sheet:close" style="display:flex;flex-direction:column;align-items:center;gap:5px;padding:9px 0;border:0;border-radius:16px;background:var(--sn-card2);color:var(--sn-text);font:600 11px var(--sn-body);cursor:pointer">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V5a1 1 0 011-1h6a1 1 0 011 1v16"></path><path d="M13 10h4a1 1 0 011 1v10"></path></svg>Submit
+                  </button>
+                  <button data-act="sheet:close" style="display:flex;flex-direction:column;align-items:center;gap:5px;padding:9px 0;border:0;border-radius:16px;background:var(--sn-card2);color:var(--sn-danger);font:600 11px var(--sn-body);cursor:pointer">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"></path><path d="M9 7V5h6v2"></path><path d="M6.5 7l1 13h9l1-13"></path></svg>Delete
+                  </button>
+                </div>
+              </div>
+            </sc-if>
+          </sc-if>
+
+          <sc-if value="{{ isSearch }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:56px 0 150px">
+              <div style="padding:0 14px;display:flex;align-items:center;gap:8px">
+                <div style="flex:1;height:44px;display:flex;align-items:center;gap:9px;padding:0 15px;border:1px solid var(--sn-accent);border-radius:999px;background:var(--sn-card);color:var(--sn-text);font:400 15px var(--sn-body)">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--sn-faint)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4.2-4.2"></path></svg>
+                  <span>miami</span><span style="width:1.5px;height:18px;background:var(--sn-accent);animation:snblink 1.1s infinite"></span>
+                </div>
+                <button data-act="go:folders" style="border:0;background:transparent;color:var(--sn-accent);font:600 15px var(--sn-body);cursor:pointer;padding:0 4px">Cancel</button>
+              </div>
+              <div style="display:flex;gap:7px;padding:12px 14px 0;overflow:auto">
+                <span style="height:32px;display:flex;align-items:center;padding:0 14px;border-radius:999px;background:var(--sn-accent);color:#fff;font:600 12.5px var(--sn-body);white-space:nowrap">All</span>
+                <span style="height:32px;display:flex;align-items:center;padding:0 14px;border-radius:999px;border:1px solid var(--sn-line2);font:600 12.5px var(--sn-body);white-space:nowrap">Photos</span>
+                <span style="height:32px;display:flex;align-items:center;padding:0 14px;border-radius:999px;border:1px solid var(--sn-line2);font:600 12.5px var(--sn-body);white-space:nowrap">Videos</span>
+                <span style="height:32px;display:flex;align-items:center;padding:0 14px;border-radius:999px;border:1px solid var(--sn-line2);font:600 12.5px var(--sn-body);white-space:nowrap">This week</span>
+                <span style="height:32px;display:flex;align-items:center;padding:0 14px;border-radius:999px;border:1px solid var(--sn-line2);font:600 12.5px var(--sn-body);white-space:nowrap">Not backed up</span>
+              </div>
+              <div style="padding:20px 20px 8px;font:700 11px var(--sn-body);letter-spacing:.09em;text-transform:uppercase;color:var(--sn-faint)">Folders</div>
+              <div style="padding:0 20px">
+                <button data-act="go:folder" style="width:100%;display:flex;align-items:center;gap:13px;padding:11px 14px;border:1px solid var(--sn-line);border-radius:var(--sn-r2);background:var(--sn-card);cursor:pointer;text-align:left">
+                  <span style="width:40px;height:40px;flex:none;border-radius:13px;background:linear-gradient(150deg,#ffd9c0,#c98d5e)"></span>
+                  <span style="flex:1"><span style="display:block;font:600 15px var(--sn-body)">Evento <mark style="background:var(--sn-accent-soft);color:inherit;border-radius:4px;padding:0 2px">Miami</mark></span><span style="display:block;font:400 12.5px var(--sn-body);color:var(--sn-muted);margin-top:1px">18 files</span></span>
+                </button>
+              </div>
+              <div style="padding:20px 20px 8px;font:700 11px var(--sn-body);letter-spacing:.09em;text-transform:uppercase;color:var(--sn-faint)">Captures · 11 results</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:3px;padding:0 3px">
+                <div style="aspect-ratio:1;border-radius:4px;background:linear-gradient(150deg,#ffd9c0,#c98d5e)"></div>
+                <div style="aspect-ratio:1;border-radius:4px;background:linear-gradient(140deg,#cdd8c0,#9aa885)"></div>
+                <div style="aspect-ratio:1;border-radius:4px;background:linear-gradient(160deg,#c9cfd6,#9aa4b0)"></div>
+                <div style="aspect-ratio:1;border-radius:4px;background:linear-gradient(120deg,#f1c9a5,#c98d5e)"></div>
+                <div style="aspect-ratio:1;border-radius:4px;background:linear-gradient(135deg,#e3d2b8,#a8927a)"></div>
+                <div style="aspect-ratio:1;border-radius:4px;background:linear-gradient(145deg,#cfd9c6,#8fa073)"></div>
+              </div>
+              <div style="padding:22px 20px 0;font:700 11px var(--sn-body);letter-spacing:.09em;text-transform:uppercase;color:var(--sn-faint)">Recent searches</div>
+              <div style="display:flex;gap:8px;padding:10px 20px 0;flex-wrap:wrap">
+                <span style="height:32px;display:flex;align-items:center;padding:0 14px;border-radius:999px;background:var(--sn-card2);font:500 13px var(--sn-body)">flat lay</span>
+                <span style="height:32px;display:flex;align-items:center;padding:0 14px;border-radius:999px;background:var(--sn-card2);font:500 13px var(--sn-body)">last friday</span>
+                <span style="height:32px;display:flex;align-items:center;padding:0 14px;border-radius:999px;background:var(--sn-card2);font:500 13px var(--sn-body)">not backed up</span>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isActivity }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:58px 0 150px">
+              <div style="padding:0 20px;display:flex;align-items:flex-start;justify-content:space-between">
+                <div>
+                  <div style="font-family:var(--sn-display);font-weight:var(--sn-dw);letter-spacing:var(--sn-dls);font-size:34px;line-height:1.1">Uploads</div>
+                  <div style="font:400 13.5px var(--sn-body);color:var(--sn-muted);margin-top:4px">{{ statusTitle }}</div>
+                </div>
+                <button data-act="go:storage" style="margin-top:8px;height:34px;padding:0 14px;border:1px solid var(--sn-line2);border-radius:999px;background:transparent;color:var(--sn-text);font:600 12.5px var(--sn-body);cursor:pointer">Storage</button>
+              </div>
+
+              <sc-if value="{{ isOffline }}" hint-placeholder-val="{{ false }}">
+                <div style="margin:16px 20px 0;display:flex;align-items:center;gap:11px;padding:13px 15px;border-radius:var(--sn-r2);background:var(--sn-warn-soft);border:1px solid rgba(192,138,46,.25)">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--sn-warn)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"></path><path d="M6.5 18a4 4 0 01.4-8 6 6 0 019.2-2"></path><path d="M18.5 11.5A3.5 3.5 0 0117.5 18h-6"></path></svg>
+                  <div style="flex:1"><div style="font:700 13.5px var(--sn-body)">You're offline</div><div style="font:400 12px/1.45 var(--sn-body);color:var(--sn-muted)">Keep shooting. Captures are safe on your phone and upload themselves when you reconnect.</div></div>
+                </div>
+              </sc-if>
+
+              <div style="padding:18px 20px 8px;display:flex;align-items:center;justify-content:space-between">
+                <div style="font:700 11px var(--sn-body);letter-spacing:.09em;text-transform:uppercase;color:var(--sn-faint)">In progress · {{ queueCount }}</div>
+                <button data-act="retry" style="border:0;background:transparent;color:var(--sn-accent);font:600 12.5px var(--sn-body);cursor:pointer">Pause all</button>
+              </div>
+
+              <div style="padding:0 20px;display:flex;flex-direction:column;gap:9px">
+                <sc-for list="{{ queue }}" as="it" hint-placeholder-count="2">
+                  <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--sn-line);border-radius:var(--sn-r2);background:var(--sn-card);box-shadow:var(--sn-sh)">
+                    <span style="width:44px;height:44px;flex:none;border-radius:14px;background:linear-gradient(150deg,#ffd9c0,#c98d5e)"></span>
+                    <span style="flex:1;min-width:0">
+                      <span style="display:flex;align-items:baseline;justify-content:space-between;gap:8px">
+                        <span style="font:600 15px var(--sn-body);color:var(--sn-text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ it.name }}</span>
+                        <span style="font:600 12px var(--sn-body);color:var(--sn-accent-deep);flex:none">{{ it.pctLabel }}</span>
+                      </span>
+                      <span style="display:block;height:5px;border-radius:999px;background:var(--sn-card2);margin-top:7px;overflow:hidden"><span style="display:block;height:100%;border-radius:999px;background:var(--sn-accent);width:{{ it.w }};transition:width .3s linear"></span></span>
+                      <span style="display:block;font:400 11.5px var(--sn-body);color:var(--sn-muted);margin-top:6px">{{ it.kindLabel }} · {{ it.size }} · Evento Miami</span>
+                    </span>
+                  </div>
+                </sc-for>
+                <sc-if value="{{ statusOk }}" hint-placeholder-val="{{ true }}">
+                  <div style="display:flex;align-items:center;gap:11px;padding:15px 16px;border:1px dashed var(--sn-line2);border-radius:var(--sn-r2);background:transparent">
+                    <span style="width:34px;height:34px;flex:none;border-radius:999px;background:var(--sn-ok-soft);display:flex;align-items:center;justify-content:center;color:var(--sn-ok-deep)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-10"></path></svg></span>
+                    <div style="font:500 13.5px var(--sn-body);color:var(--sn-muted)">Queue is empty — every capture is in the cloud.</div>
+                  </div>
+                </sc-if>
+              </div>
+
+              <div style="padding:22px 20px 8px;font:700 11px var(--sn-body);letter-spacing:.09em;text-transform:uppercase;color:var(--sn-faint)">Needs your attention</div>
+              <div style="padding:0 20px">
+                <div style="padding:13px 14px;border:1px solid rgba(178,58,45,.25);border-radius:var(--sn-r2);background:var(--sn-card)">
+                  <div style="display:flex;align-items:center;gap:12px">
+                    <span style="width:44px;height:44px;flex:none;border-radius:14px;background:linear-gradient(160deg,#c9cfd6,#9aa4b0);position:relative">
+                      <span style="position:absolute;right:-3px;bottom:-3px;width:19px;height:19px;border-radius:999px;background:var(--sn-danger);border:2px solid var(--sn-card);display:flex;align-items:center;justify-content:center;color:#fff;font:700 11px var(--sn-body)">!</span>
+                    </span>
+                    <div style="flex:1;min-width:0">
+                      <div style="font:600 15px var(--sn-body)">Evento Miami 02</div>
+                      <div style="font:400 11.5px var(--sn-body);color:var(--sn-muted);margin-top:2px">Video · 18.8 MB · upload interrupted</div>
+                    </div>
+                  </div>
+                  <div style="display:flex;gap:8px;margin-top:11px">
+                    <button data-act="retry" style="flex:1;height:36px;border:0;border-radius:999px;background:var(--sn-accent);color:#fff;font:600 13px var(--sn-body);cursor:pointer">Try again</button>
+                    <button data-act="sheet:close" style="height:36px;padding:0 14px;border:1px solid var(--sn-line2);border-radius:999px;background:transparent;color:var(--sn-muted);font:600 13px var(--sn-body);cursor:pointer">Remove</button>
+                  </div>
+                </div>
+              </div>
+
+              <div style="padding:22px 20px 8px;display:flex;align-items:baseline;justify-content:space-between">
+                <div style="font:700 11px var(--sn-body);letter-spacing:.09em;text-transform:uppercase;color:var(--sn-faint)">Backed up · today</div>
+                <div style="font:500 12px var(--sn-body);color:var(--sn-ok-deep)">Editors can see these</div>
+              </div>
+              <div style="padding:0 20px;display:flex;flex-direction:column;gap:9px">
+                <div style="display:flex;align-items:center;gap:12px;padding:11px 14px;border:1px solid var(--sn-line);border-radius:var(--sn-r2);background:var(--sn-card)">
+                  <span style="width:44px;height:44px;flex:none;border-radius:14px;background:linear-gradient(140deg,#cdd8c0,#9aa885)"></span>
+                  <div style="flex:1;min-width:0">
+                    <div style="font:600 15px var(--sn-body)">Evento Miami 03</div>
+                    <div style="font:400 11.5px var(--sn-body);color:var(--sn-muted);margin-top:2px">Photo · 0.4 MB · 12:04</div>
+                    <div style="font:400 10.5px 'IBM Plex Mono',ui-monospace,monospace;color:var(--sn-faint);margin-top:3px">snapnest-1784917885336.jpg</div>
+                  </div>
+                  <span style="width:22px;height:22px;flex:none;border-radius:999px;background:var(--sn-ok-soft);display:flex;align-items:center;justify-content:center;color:var(--sn-ok-deep)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-10"></path></svg></span>
+                </div>
+                <div style="display:flex;align-items:center;gap:12px;padding:11px 14px;border:1px solid var(--sn-line);border-radius:var(--sn-r2);background:var(--sn-card)">
+                  <span style="width:44px;height:44px;flex:none;border-radius:14px;background:linear-gradient(120deg,#f1c9a5,#c98d5e)"></span>
+                  <div style="flex:1;min-width:0">
+                    <div style="font:600 15px var(--sn-body)">Evento Miami 02</div>
+                    <div style="font:400 11.5px var(--sn-body);color:var(--sn-muted);margin-top:2px">Video · 9.6 MB · 11:47</div>
+                    <div style="font:400 10.5px 'IBM Plex Mono',ui-monospace,monospace;color:var(--sn-faint);margin-top:3px">snapnest-1784847809503.mp4</div>
+                  </div>
+                  <span style="width:22px;height:22px;flex:none;border-radius:999px;background:var(--sn-ok-soft);display:flex;align-items:center;justify-content:center;color:var(--sn-ok-deep)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-10"></path></svg></span>
+                </div>
+                <div style="display:flex;align-items:center;gap:12px;padding:11px 14px;border:1px solid var(--sn-line);border-radius:var(--sn-r2);background:var(--sn-card)">
+                  <span style="width:44px;height:44px;flex:none;border-radius:14px;background:linear-gradient(155deg,#d7c4b0,#8f7a68)"></span>
+                  <div style="flex:1;min-width:0">
+                    <div style="font:600 15px var(--sn-body)">Ads · Q3 04</div>
+                    <div style="font:400 11.5px var(--sn-body);color:var(--sn-muted);margin-top:2px">Photo · 0.3 MB · 09:12</div>
+                    <div style="font:400 10.5px 'IBM Plex Mono',ui-monospace,monospace;color:var(--sn-faint);margin-top:3px">snapnest-1784844894096.jpg</div>
+                  </div>
+                  <span style="width:22px;height:22px;flex:none;border-radius:999px;background:var(--sn-ok-soft);display:flex;align-items:center;justify-content:center;color:var(--sn-ok-deep)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-10"></path></svg></span>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isActivityEmpty }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:58px 20px 150px">
+              <div style="font-family:var(--sn-display);font-weight:var(--sn-dw);letter-spacing:var(--sn-dls);font-size:34px;line-height:1.1">Uploads</div>
+              <div style="margin-top:90px;display:flex;flex-direction:column;align-items:center;text-align:center">
+                <div style="position:relative;width:160px;height:160px;margin-bottom:20px">
+                  <span style="position:absolute;inset:0;border-radius:999px;background:var(--sn-ok-soft)"></span>
+                  <span style="position:absolute;inset:34px;border-radius:999px;background:var(--sn-card);box-shadow:var(--sn-sh)"></span>
+                  <span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--sn-ok-deep)"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-10"></path></svg></span>
+                </div>
+                <div style="font-family:var(--sn-display);font-weight:var(--sn-dw);letter-spacing:var(--sn-dls);font-size:26px">All caught up</div>
+                <div style="font:400 14.5px/1.55 var(--sn-body);color:var(--sn-muted);max-width:270px;margin-top:6px;text-wrap:pretty">Every capture has reached the cloud. Your editors already have today's 12 files.</div>
+                <button data-act="tab:camera" style="margin-top:20px;height:50px;padding:0 26px;border:0;border-radius:999px;background:var(--sn-accent);color:#fff;font:700 15px var(--sn-body);cursor:pointer">Back to camera</button>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isInbox }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:56px 0 150px">
+              <div style="padding:0 14px;display:flex;align-items:center">
+                <button data-act="go:folders" style="display:flex;align-items:center;gap:2px;height:38px;padding:0 8px 0 2px;border:0;background:transparent;color:var(--sn-accent);font:600 15.5px var(--sn-body);cursor:pointer">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg>Folders
+                </button>
+                <div style="flex:1"></div>
+                <button data-act="sheet:close" style="border:0;background:transparent;color:var(--sn-accent);font:600 15px var(--sn-body);cursor:pointer;padding:0 6px">Mark all read</button>
+              </div>
+              <div style="padding:8px 20px 0;font-family:var(--sn-display);font-weight:var(--sn-dw);letter-spacing:var(--sn-dls);font-size:30px">Notifications</div>
+              <div style="padding:16px 20px 0;display:flex;flex-direction:column;gap:9px">
+                <div style="display:flex;gap:12px;padding:14px 15px;border:1px solid var(--sn-line);border-radius:var(--sn-r2);background:var(--sn-card);box-shadow:var(--sn-sh)">
+                  <span style="width:36px;height:36px;flex:none;border-radius:999px;background:var(--sn-accent-soft);display:flex;align-items:center;justify-content:center;color:var(--sn-accent-deep)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"></path><path d="M4 12h16"></path><path d="M4 18h10"></path></svg></span>
+                  <div style="flex:1">
+                    <div style="font:600 14.5px var(--sn-body)">Nido Studio asked for a reshoot</div>
+                    <div style="font:400 12.5px/1.5 var(--sn-body);color:var(--sn-muted);margin-top:3px">“Evento Miami 02 is soft — one more wide shot of the entrance please.”</div>
+                    <div style="display:flex;gap:8px;margin-top:10px">
+                      <button data-act="tab:camera" style="height:34px;padding:0 14px;border:0;border-radius:999px;background:var(--sn-accent);color:#fff;font:600 12.5px var(--sn-body);cursor:pointer">Shoot it now</button>
+                      <button data-act="go:viewer" style="height:34px;padding:0 14px;border:1px solid var(--sn-line2);border-radius:999px;background:transparent;color:var(--sn-text);font:600 12.5px var(--sn-body);cursor:pointer">See the file</button>
+                    </div>
+                  </div>
+                  <span style="width:8px;height:8px;flex:none;border-radius:999px;background:var(--sn-accent);margin-top:6px"></span>
+                </div>
+                <div style="display:flex;gap:12px;padding:14px 15px;border:1px solid var(--sn-line);border-radius:var(--sn-r2);background:var(--sn-card)">
+                  <span style="width:36px;height:36px;flex:none;border-radius:999px;background:var(--sn-ok-soft);display:flex;align-items:center;justify-content:center;color:var(--sn-ok-deep)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-10"></path></svg></span>
+                  <div style="flex:1"><div style="font:600 14.5px var(--sn-body)">12 files delivered</div><div style="font:400 12.5px var(--sn-body);color:var(--sn-muted);margin-top:2px">Evento Miami finished uploading · 12:04</div></div>
+                </div>
+                <div style="display:flex;gap:12px;padding:14px 15px;border:1px solid var(--sn-line);border-radius:var(--sn-r2);background:var(--sn-card)">
+                  <span style="width:36px;height:36px;flex:none;border-radius:999px;background:var(--sn-card2);display:flex;align-items:center;justify-content:center;color:var(--sn-muted)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a2 2 0 012-2h3.5l2 2H19a2 2 0 012 2v7a2 2 0 01-2 2H5a2 2 0 01-2-2z"></path></svg></span>
+                  <div style="flex:1"><div style="font:600 14.5px var(--sn-body)">New agency folder</div><div style="font:400 12.5px var(--sn-body);color:var(--sn-muted);margin-top:2px">“Fotos Madrid — editadas” is ready for your captures</div></div>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isViewer }}" hint-placeholder-val="{{ false }}">
+            <div style="min-height:874px;background:#141312;display:flex;flex-direction:column">
+              <div style="padding:56px 14px 8px;display:flex;align-items:center;gap:8px">
+                <button data-act="go:folder" style="display:flex;align-items:center;gap:2px;height:38px;padding:0 8px 0 2px;border:0;background:transparent;color:#fdfaf4;font:600 15.5px var(--sn-body);cursor:pointer">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg>
+                </button>
+                <div style="flex:1;text-align:center">
+                  <div style="font:600 14px var(--sn-body);color:#fdfaf4">Evento Miami 03</div>
+                  <div style="font:400 11px var(--sn-body);color:rgba(253,250,244,.5)">24 July · 12:04</div>
+                </div>
+                <button data-act="sheet:close" style="width:38px;height:38px;border:0;border-radius:999px;background:rgba(253,250,244,.12);color:#fdfaf4;display:flex;align-items:center;justify-content:center;cursor:pointer">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1.4"></circle><circle cx="12" cy="12" r="1.4"></circle><circle cx="12" cy="19" r="1.4"></circle></svg>
+                </button>
+              </div>
+              <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:10px 0">
+                <div style="width:100%;aspect-ratio:3/4;background:linear-gradient(150deg,#ffd9c0,#c98d5e);display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.55)">
+                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"></rect><circle cx="9" cy="10" r="1.6"></circle><path d="M4 17l5-5 3.5 3.5 3-3L20 17"></path></svg>
+                </div>
+              </div>
+              <div style="padding:0 16px 10px;display:flex;gap:7px;justify-content:center;flex-wrap:wrap">
+                <span style="height:28px;display:flex;align-items:center;gap:5px;padding:0 11px;border-radius:999px;background:rgba(122,138,94,.22);color:#cfe0b0;font:600 11.5px var(--sn-body)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-10"></path></svg>Backed up 12:04</span>
+                <span style="height:28px;display:flex;align-items:center;padding:0 11px;border-radius:999px;background:rgba(253,250,244,.1);color:rgba(253,250,244,.75);font:600 11.5px var(--sn-body)">Photo · 0.4 MB</span>
+                <span style="height:28px;display:flex;align-items:center;padding:0 11px;border-radius:999px;background:rgba(253,250,244,.1);color:rgba(253,250,244,.75);font:600 11.5px var(--sn-body)">Evento Miami</span>
+              </div>
+              <div style="padding:0 8px 10px;display:flex;gap:4px;justify-content:center">
+                <span style="width:44px;height:44px;border-radius:8px;background:linear-gradient(140deg,#cdd8c0,#9aa885);opacity:.45"></span>
+                <span style="width:44px;height:56px;border-radius:8px;background:linear-gradient(150deg,#ffd9c0,#c98d5e);border:2px solid #fdfaf4;align-self:center"></span>
+                <span style="width:44px;height:44px;border-radius:8px;background:linear-gradient(160deg,#c9cfd6,#9aa4b0);opacity:.45"></span>
+                <span style="width:44px;height:44px;border-radius:8px;background:linear-gradient(120deg,#f1c9a5,#c98d5e);opacity:.45"></span>
+                <span style="width:44px;height:44px;border-radius:8px;background:linear-gradient(135deg,#e3d2b8,#a8927a);opacity:.45"></span>
+              </div>
+              <div style="padding:0 16px 40px;display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px">
+                <button data-act="sheet:close" style="display:flex;flex-direction:column;align-items:center;gap:5px;padding:11px 0;border:0;border-radius:16px;background:rgba(253,250,244,.1);color:#fdfaf4;font:600 11px var(--sn-body);cursor:pointer"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4"></path><path d="M8 8l4-4 4 4"></path><path d="M5 15v3a2 2 0 002 2h10a2 2 0 002-2v-3"></path></svg>Share</button>
+                <button data-act="sheet:dest" style="display:flex;flex-direction:column;align-items:center;gap:5px;padding:11px 0;border:0;border-radius:16px;background:rgba(253,250,244,.1);color:#fdfaf4;font:600 11px var(--sn-body);cursor:pointer"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a2 2 0 012-2h3.5l2 2H19a2 2 0 012 2v7a2 2 0 01-2 2H5a2 2 0 01-2-2z"></path></svg>Move</button>
+                <button data-act="go:agencyFolder" style="display:flex;flex-direction:column;align-items:center;gap:5px;padding:11px 0;border:0;border-radius:16px;background:rgba(253,250,244,.1);color:#fdfaf4;font:600 11px var(--sn-body);cursor:pointer"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V5a1 1 0 011-1h6a1 1 0 011 1v16"></path><path d="M13 10h4a1 1 0 011 1v10"></path></svg>Submit</button>
+                <button data-act="sheet:close" style="display:flex;flex-direction:column;align-items:center;gap:5px;padding:11px 0;border:0;border-radius:16px;background:rgba(253,250,244,.1);color:#ff9d8f;font:600 11px var(--sn-body);cursor:pointer"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"></path><path d="M9 7V5h6v2"></path><path d="M6.5 7l1 13h9l1-13"></path></svg>Delete</button>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isViewerVideo }}" hint-placeholder-val="{{ false }}">
+            <div style="min-height:874px;background:#141312;display:flex;flex-direction:column">
+              <div style="padding:56px 14px 8px;display:flex;align-items:center">
+                <button data-act="go:folder" style="height:38px;padding:0 8px 0 2px;border:0;background:transparent;color:#fdfaf4;cursor:pointer;display:flex;align-items:center">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg>
+                </button>
+                <div style="flex:1;text-align:center">
+                  <div style="font:600 14px var(--sn-body);color:#fdfaf4">Evento Miami 06</div>
+                  <div style="font:400 11px var(--sn-body);color:rgba(253,250,244,.5)">Video · 1:04 · 18.8 MB</div>
+                </div>
+                <div style="width:38px"></div>
+              </div>
+              <div style="flex:1;display:flex;align-items:center;justify-content:center">
+                <div style="width:100%;aspect-ratio:9/16;max-height:520px;background:linear-gradient(160deg,#c9cfd6,#6f7b87);position:relative;display:flex;align-items:center;justify-content:center">
+                  <button data-act="sheet:close" style="width:72px;height:72px;border:0;border-radius:999px;background:rgba(20,19,18,.45);backdrop-filter:blur(8px);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;padding-left:6px"><svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5l12 7-12 7z"></path></svg></button>
+                </div>
+              </div>
+              <div style="padding:14px 18px 0">
+                <div style="height:4px;border-radius:999px;background:rgba(253,250,244,.2);position:relative"><span style="position:absolute;left:0;top:0;bottom:0;width:34%;border-radius:999px;background:#fdfaf4"></span><span style="position:absolute;left:34%;top:-4px;width:12px;height:12px;border-radius:999px;background:#fdfaf4"></span></div>
+                <div style="display:flex;justify-content:space-between;margin-top:8px;font:500 11px var(--sn-body);color:rgba(253,250,244,.6)"><span>0:21</span><span>-0:43</span></div>
+              </div>
+              <div style="padding:18px 16px 44px;display:flex;align-items:center;justify-content:center;gap:26px">
+                <button data-act="sheet:close" style="border:0;background:transparent;color:rgba(253,250,244,.75);cursor:pointer"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L4 12l7 7"></path><path d="M20 5l-7 7 7 7"></path></svg></button>
+                <button data-act="sheet:close" style="width:56px;height:56px;border:0;border-radius:999px;background:#fdfaf4;color:#201e1d;display:flex;align-items:center;justify-content:center;cursor:pointer"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1.4"></rect><rect x="14" y="5" width="4" height="14" rx="1.4"></rect></svg></button>
+                <button data-act="sheet:close" style="border:0;background:transparent;color:rgba(253,250,244,.75);cursor:pointer"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M13 5l7 7-7 7"></path><path d="M4 5l7 7-7 7"></path></svg></button>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isAgency }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:58px 0 150px">
+              <div style="padding:0 20px">
+                <div style="display:flex;align-items:center;gap:11px">
+                  <span style="width:44px;height:44px;border-radius:14px;background:var(--sn-accent-deep);color:#fdfaf4;display:flex;align-items:center;justify-content:center;font-family:var(--sn-display);font-weight:var(--sn-dw);font-size:19px">N</span>
+                  <div>
+                    <div style="font:500 12px var(--sn-body);color:var(--sn-muted);letter-spacing:.04em;text-transform:uppercase">Agency workspace</div>
+                    <div style="font-family:var(--sn-display);font-weight:var(--sn-dw);letter-spacing:var(--sn-dls);font-size:26px;line-height:1.15">Nido Studio</div>
+                  </div>
+                </div>
+                <div style="margin-top:16px;padding:14px 16px;border-radius:var(--sn-r);background:var(--sn-accent-soft);border:1px solid rgba(198,113,57,.2)">
+                  <div style="font:600 14px var(--sn-body);color:var(--sn-accent-deep)">Anything you drop here reaches the editors instantly</div>
+                  <div style="font:400 12.5px/1.5 var(--sn-body);color:var(--sn-accent-deep);opacity:.8;margin-top:3px">They work in the Nido dashboard — you never have to send a link or a WeTransfer again.</div>
+                </div>
+              </div>
+
+              <div style="padding:22px 20px 8px;display:flex;align-items:baseline;justify-content:space-between">
+                <div style="font:700 11px var(--sn-body);letter-spacing:.09em;text-transform:uppercase;color:var(--sn-faint)">Intake folders</div>
+                <div style="font:500 12px var(--sn-body);color:var(--sn-muted)">4 submitted today</div>
+              </div>
+              <div style="padding:0 20px;display:flex;flex-direction:column;gap:10px">
+                <button data-act="go:agencyFolder" style="width:100%;display:flex;align-items:center;gap:13px;padding:13px 15px;border:1px solid var(--sn-line);border-radius:var(--sn-r2);background:var(--sn-card);box-shadow:var(--sn-sh);cursor:pointer;text-align:left">
+                  <span style="width:44px;height:44px;flex:none;border-radius:14px;background:linear-gradient(150deg,#ffd9c0,#c98d5e)"></span>
+                  <span style="flex:1;min-width:0">
+                    <span style="display:block;font:600 15.5px var(--sn-body);color:var(--sn-text)">test agency folder</span>
+                    <span style="display:block;font:400 12.5px var(--sn-body);color:var(--sn-muted);margin-top:2px">12 files · you added 4</span>
+                  </span>
+                  <span style="height:24px;display:flex;align-items:center;padding:0 9px;border-radius:999px;background:var(--sn-ok-soft);color:var(--sn-ok-deep);font:700 10.5px var(--sn-body);letter-spacing:.04em">OPEN</span>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--sn-faint)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>
+                </button>
+                <button data-act="go:agencyFolder" style="width:100%;display:flex;align-items:center;gap:13px;padding:13px 15px;border:1px solid var(--sn-line);border-radius:var(--sn-r2);background:var(--sn-card);box-shadow:var(--sn-sh);cursor:pointer;text-align:left">
+                  <span style="width:44px;height:44px;flex:none;border-radius:14px;background:var(--sn-card2);display:flex;align-items:center;justify-content:center;color:var(--sn-faint)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a2 2 0 012-2h3.5l2 2H19a2 2 0 012 2v7a2 2 0 01-2 2H5a2 2 0 01-2-2z"></path></svg></span>
+                  <span style="flex:1;min-width:0">
+                    <span style="display:block;font:600 15.5px var(--sn-body);color:var(--sn-text)">Fotos Madrid — editadas</span>
+                    <span style="display:block;font:400 12.5px var(--sn-body);color:var(--sn-muted);margin-top:2px">Empty · waiting on you</span>
+                  </span>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--sn-faint)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>
+                </button>
+              </div>
+
+              <div style="padding:22px 20px 0">
+                <button data-act="tab:camera" style="width:100%;height:52px;border:0;border-radius:999px;background:var(--sn-accent);color:#fff;font:700 15.5px var(--sn-body);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
+                  <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="3"></rect><circle cx="12" cy="12.5" r="3.4"></circle></svg>
+                  Shoot straight into a folder
+                </button>
+                <div style="text-align:center;font:400 12px var(--sn-body);color:var(--sn-faint);margin-top:10px">Read-only for you — editors decide what ships.</div>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isAgencyFolder }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:0 0 150px">
+              <div style="position:sticky;top:0;z-index:1;background:var(--sn-glass);backdrop-filter:blur(20px);border-bottom:1px solid var(--sn-line);padding:8px 14px 12px">
+                <div style="display:flex;align-items:center">
+                  <button data-act="go:agency" style="display:flex;align-items:center;gap:2px;height:38px;padding:0 8px 0 2px;border:0;background:transparent;color:var(--sn-accent);font:600 15.5px var(--sn-body);cursor:pointer">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg>Nido Studio
+                  </button>
+                </div>
+                <div style="padding:6px 6px 0">
+                  <div style="font-family:var(--sn-display);font-weight:var(--sn-dw);letter-spacing:var(--sn-dls);font-size:27px;line-height:1.15">test agency folder</div>
+                  <div style="display:flex;align-items:center;gap:8px;margin-top:6px;font:400 12.5px var(--sn-body);color:var(--sn-muted)">
+                    <span>12 files</span><span style="width:3px;height:3px;border-radius:999px;background:var(--sn-faint)"></span>
+                    <span>Read-only</span><span style="width:3px;height:3px;border-radius:999px;background:var(--sn-faint)"></span>
+                    <span style="color:var(--sn-accent-deep);font-weight:600">4 yours</span>
+                  </div>
+                </div>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:3px;padding:12px 3px 0">
+                <div style="position:relative;aspect-ratio:1;border-radius:4px;background:linear-gradient(150deg,#ffd9c0,#c98d5e)"><span style="position:absolute;left:5px;bottom:5px;height:16px;display:flex;align-items:center;padding:0 6px;border-radius:999px;background:rgba(140,73,26,.9);color:#fff;font:700 9px var(--sn-body)">YOURS</span></div>
+                <div style="position:relative;aspect-ratio:1;border-radius:4px;background:linear-gradient(140deg,#cdd8c0,#9aa885)"><span style="position:absolute;left:5px;bottom:5px;height:16px;display:flex;align-items:center;padding:0 6px;border-radius:999px;background:rgba(140,73,26,.9);color:#fff;font:700 9px var(--sn-body)">YOURS</span></div>
+                <div style="aspect-ratio:1;border-radius:4px;background:linear-gradient(160deg,#c9cfd6,#9aa4b0)"></div>
+                <div style="aspect-ratio:1;border-radius:4px;background:linear-gradient(120deg,#f1c9a5,#c98d5e)"></div>
+                <div style="aspect-ratio:1;border-radius:4px;background:linear-gradient(135deg,#e3d2b8,#a8927a)"></div>
+                <div style="aspect-ratio:1;border-radius:4px;background:linear-gradient(145deg,#cfd9c6,#8fa073)"></div>
+                <div style="aspect-ratio:1;border-radius:4px;background:linear-gradient(200deg,#e8dcc8,#bfa98c)"></div>
+                <div style="aspect-ratio:1;border-radius:4px;background:linear-gradient(165deg,#f3ddc4,#d3a36f)"></div>
+                <div style="aspect-ratio:1;border-radius:4px;background:linear-gradient(175deg,#e7cdb6,#bb8f6c)"></div>
+              </div>
+              <div style="position:absolute;left:14px;right:14px;bottom:100px;z-index:45">
+                <button data-act="tab:camera" style="width:100%;height:52px;border:0;border-radius:999px;background:var(--sn-accent);color:#fff;font:700 15.5px var(--sn-body);box-shadow:var(--sn-sh-lg);cursor:pointer">Submit captures here</button>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isAgencyUpsell }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:58px 20px 150px">
+              <div style="font-family:var(--sn-display);font-weight:var(--sn-dw);letter-spacing:var(--sn-dls);font-size:32px;line-height:1.12">Hand the editing<br>to someone else</div>
+              <div style="font:400 14.5px/1.6 var(--sn-body);color:var(--sn-muted);margin-top:10px;text-wrap:pretty">Join an agency workspace and your captures land straight on your editor's desk — no links, no exports, no “did you get it?”.</div>
+
+              <div style="margin-top:22px;border-radius:var(--sn-r);border:1px solid var(--sn-line);background:var(--sn-card);box-shadow:var(--sn-sh);padding:20px;position:relative;overflow:hidden">
+                <span style="position:absolute;right:-30px;top:-30px;width:120px;height:120px;border-radius:999px;background:var(--sn-accent-soft)"></span>
+                <div style="position:relative">
+                  <span style="height:26px;display:inline-flex;align-items:center;padding:0 10px;border-radius:999px;background:var(--sn-accent);color:#fff;font:700 10.5px var(--sn-body);letter-spacing:.06em">PLACEHOLDER PLAN</span>
+                  <div style="font-family:var(--sn-display);font-weight:var(--sn-dw);letter-spacing:var(--sn-dls);font-size:26px;margin-top:12px">Studio</div>
+                  <div style="display:flex;align-items:baseline;gap:5px;margin-top:2px"><span style="font-family:var(--sn-display);font-weight:var(--sn-dw);font-size:34px">$29</span><span style="font:500 13px var(--sn-body);color:var(--sn-muted)">per month</span></div>
+                  <div style="display:flex;flex-direction:column;gap:9px;margin-top:16px">
+                    <div style="display:flex;gap:9px;align-items:flex-start;font:400 13.5px/1.4 var(--sn-body)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--sn-ok)" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" style="margin-top:2px;flex:none"><path d="M5 13l4 4 10-10"></path></svg>Unlimited intake folders</div>
+                    <div style="display:flex;gap:9px;align-items:flex-start;font:400 13.5px/1.4 var(--sn-body)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--sn-ok)" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" style="margin-top:2px;flex:none"><path d="M5 13l4 4 10-10"></path></svg>Editors pull originals from the dashboard</div>
+                    <div style="display:flex;gap:9px;align-items:flex-start;font:400 13.5px/1.4 var(--sn-body)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--sn-ok)" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" style="margin-top:2px;flex:none"><path d="M5 13l4 4 10-10"></path></svg>Reshoot requests land as notifications</div>
+                    <div style="display:flex;gap:9px;align-items:flex-start;font:400 13.5px/1.4 var(--sn-body)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--sn-ok)" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" style="margin-top:2px;flex:none"><path d="M5 13l4 4 10-10"></path></svg>1 TB of shared storage</div>
+                  </div>
+                  <button data-act="agency" style="width:100%;height:50px;margin-top:18px;border:0;border-radius:999px;background:var(--sn-accent);color:#fff;font:700 15px var(--sn-body);cursor:pointer">See plans</button>
+                </div>
+              </div>
+
+              <div style="margin-top:16px;padding:16px;border:1px dashed var(--sn-line2);border-radius:var(--sn-r2)">
+                <div style="font:600 14px var(--sn-body)">Already working with an agency?</div>
+                <div style="font:400 12.5px/1.5 var(--sn-body);color:var(--sn-muted);margin-top:3px">Ask them for an invite — the tab appears the moment they add your email.</div>
+                <button data-act="agency" style="height:38px;padding:0 16px;margin-top:12px;border:1px solid var(--sn-line2);border-radius:999px;background:transparent;color:var(--sn-text);font:600 13px var(--sn-body);cursor:pointer">Enter an invite code</button>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isSettings }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:58px 0 150px">
+              <div style="padding:0 20px">
+                <div style="font-family:var(--sn-display);font-weight:var(--sn-dw);letter-spacing:var(--sn-dls);font-size:34px;line-height:1.1">Settings</div>
+              </div>
+              <div style="padding:16px 20px 0">
+                <div style="display:flex;align-items:center;gap:13px;padding:15px 16px;border-radius:var(--sn-r);border:1px solid var(--sn-line);background:var(--sn-card);box-shadow:var(--sn-sh)">
+                  <span style="width:48px;height:48px;flex:none;border-radius:999px;background:var(--sn-accent-soft);color:var(--sn-accent-deep);display:flex;align-items:center;justify-content:center;font-family:var(--sn-display);font-weight:var(--sn-dw);font-size:19px">R</span>
+                  <div style="flex:1;min-width:0">
+                    <div style="font:700 16px var(--sn-body)">Rafael Santos</div>
+                    <div style="font:400 12.5px var(--sn-body);color:var(--sn-muted);margin-top:1px">raphy@raphsant.com</div>
+                  </div>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--sn-faint)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>
+                </div>
+              </div>
+
+              <div style="padding:22px 20px 7px;font:700 11px var(--sn-body);letter-spacing:.09em;text-transform:uppercase;color:var(--sn-faint)">Capture</div>
+              <div style="margin:0 20px;border-radius:var(--sn-r2);border:1px solid var(--sn-line);background:var(--sn-card);overflow:hidden">
+                <button data-act="sheet:dest" style="width:100%;display:flex;align-items:center;gap:12px;padding:14px 16px;border:0;border-bottom:1px solid var(--sn-line);background:transparent;cursor:pointer;text-align:left">
+                  <span style="flex:1"><span style="display:block;font:500 15px var(--sn-body);color:var(--sn-text)">Default destination</span></span>
+                  <span style="font:500 14px var(--sn-body);color:var(--sn-muted)">{{ dest }}</span>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--sn-faint)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>
+                </button>
+                <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--sn-line)">
+                  <span style="flex:1"><span style="display:block;font:500 15px var(--sn-body)">Auto-name captures</span><span style="display:block;font:400 12px var(--sn-body);color:var(--sn-muted);margin-top:2px">Folder name + number, e.g. Evento Miami 04</span></span>
+                  <span style="width:50px;height:30px;flex:none;border-radius:999px;background:var(--sn-accent);position:relative"><span style="position:absolute;top:3px;right:3px;width:24px;height:24px;border-radius:999px;background:#fff"></span></span>
+                </div>
+                <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--sn-line)">
+                  <span style="flex:1"><span style="display:block;font:500 15px var(--sn-body)">Keep a copy in Photos</span></span>
+                  <span style="width:50px;height:30px;flex:none;border-radius:999px;background:var(--sn-accent);position:relative"><span style="position:absolute;top:3px;right:3px;width:24px;height:24px;border-radius:999px;background:#fff"></span></span>
+                </div>
+                <div style="display:flex;align-items:center;gap:12px;padding:14px 16px">
+                  <span style="flex:1"><span style="display:block;font:500 15px var(--sn-body)">Shutter sound</span></span>
+                  <span style="width:50px;height:30px;flex:none;border-radius:999px;background:var(--sn-card2);position:relative"><span style="position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:999px;background:#fff;box-shadow:var(--sn-sh)"></span></span>
+                </div>
+              </div>
+
+              <div style="padding:22px 20px 7px;font:700 11px var(--sn-body);letter-spacing:.09em;text-transform:uppercase;color:var(--sn-faint)">Uploads</div>
+              <div style="margin:0 20px;border-radius:var(--sn-r2);border:1px solid var(--sn-line);background:var(--sn-card);overflow:hidden">
+                <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--sn-line)">
+                  <span style="flex:1"><span style="display:block;font:500 15px var(--sn-body)">Upload on cellular</span><span style="display:block;font:400 12px var(--sn-body);color:var(--sn-muted);margin-top:2px">Off keeps big videos for Wi-Fi</span></span>
+                  <span style="width:50px;height:30px;flex:none;border-radius:999px;background:var(--sn-card2);position:relative"><span style="position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:999px;background:#fff;box-shadow:var(--sn-sh)"></span></span>
+                </div>
+                <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--sn-line)">
+                  <span style="flex:1"><span style="display:block;font:500 15px var(--sn-body)">Keep uploading in background</span></span>
+                  <span style="width:50px;height:30px;flex:none;border-radius:999px;background:var(--sn-accent);position:relative"><span style="position:absolute;top:3px;right:3px;width:24px;height:24px;border-radius:999px;background:#fff"></span></span>
+                </div>
+                <div style="display:flex;align-items:center;gap:12px;padding:14px 16px">
+                  <span style="flex:1"><span style="display:block;font:500 15px var(--sn-body)">Tell me when a batch finishes</span></span>
+                  <span style="width:50px;height:30px;flex:none;border-radius:999px;background:var(--sn-accent);position:relative"><span style="position:absolute;top:3px;right:3px;width:24px;height:24px;border-radius:999px;background:#fff"></span></span>
+                </div>
+              </div>
+
+              <div style="padding:22px 20px 7px;font:700 11px var(--sn-body);letter-spacing:.09em;text-transform:uppercase;color:var(--sn-faint)">Storage &amp; agency</div>
+              <div style="margin:0 20px;border-radius:var(--sn-r2);border:1px solid var(--sn-line);background:var(--sn-card);overflow:hidden">
+                <button data-act="go:storage" style="width:100%;display:flex;align-items:center;gap:12px;padding:14px 16px;border:0;border-bottom:1px solid var(--sn-line);background:transparent;cursor:pointer;text-align:left">
+                  <span style="flex:1;font:500 15px var(--sn-body);color:var(--sn-text)">On-device storage</span>
+                  <span style="font:500 14px var(--sn-body);color:var(--sn-muted)">1.4 GB</span>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--sn-faint)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>
+                </button>
+                <button data-act="tab:agency" style="width:100%;display:flex;align-items:center;gap:12px;padding:14px 16px;border:0;background:transparent;cursor:pointer;text-align:left">
+                  <span style="flex:1;font:500 15px var(--sn-body);color:var(--sn-text)">Agency membership</span>
+                  <span style="font:500 14px var(--sn-body);color:var(--sn-muted)">Nido Studio</span>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--sn-faint)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>
+                </button>
+              </div>
+
+              <div style="padding:22px 20px 7px;font:700 11px var(--sn-body);letter-spacing:.09em;text-transform:uppercase;color:var(--sn-faint)">About</div>
+              <div style="margin:0 20px;border-radius:var(--sn-r2);border:1px solid var(--sn-line);background:var(--sn-card);overflow:hidden">
+                <div style="display:flex;align-items:center;padding:14px 16px;border-bottom:1px solid var(--sn-line)"><span style="flex:1;font:500 15px var(--sn-body)">Help &amp; contact</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--sn-faint)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg></div>
+                <div style="display:flex;align-items:center;padding:14px 16px;border-bottom:1px solid var(--sn-line)"><span style="flex:1;font:500 15px var(--sn-body)">Privacy</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--sn-faint)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg></div>
+                <div style="display:flex;align-items:center;padding:14px 16px"><span style="flex:1;font:500 15px var(--sn-body);color:var(--sn-muted)">Version</span><span style="font:500 14px var(--sn-body);color:var(--sn-faint)">1.4.0 (218)</span></div>
+              </div>
+
+              <div style="padding:22px 20px 0">
+                <button data-act="go:login" style="width:100%;height:50px;border:1px solid var(--sn-line2);border-radius:999px;background:transparent;color:var(--sn-danger);font:600 15px var(--sn-body);cursor:pointer">Log out</button>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isStorage }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:56px 0 150px">
+              <div style="padding:0 14px">
+                <button data-act="go:settings" style="display:flex;align-items:center;gap:2px;height:38px;padding:0 8px 0 2px;border:0;background:transparent;color:var(--sn-accent);font:600 15.5px var(--sn-body);cursor:pointer">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg>Settings
+                </button>
+              </div>
+              <div style="padding:8px 20px 0;font-family:var(--sn-display);font-weight:var(--sn-dw);letter-spacing:var(--sn-dls);font-size:30px">Storage</div>
+              <div style="padding:16px 20px 0">
+                <div style="padding:18px;border-radius:var(--sn-r);border:1px solid var(--sn-line);background:var(--sn-card);box-shadow:var(--sn-sh)">
+                  <div style="display:flex;align-items:baseline;gap:6px"><span style="font-family:var(--sn-display);font-weight:var(--sn-dw);font-size:30px">1.4 GB</span><span style="font:500 13px var(--sn-body);color:var(--sn-muted)">on this phone</span></div>
+                  <div style="display:flex;height:12px;border-radius:999px;overflow:hidden;margin-top:14px;gap:2px">
+                    <span style="width:58%;background:var(--sn-ok)"></span>
+                    <span style="width:26%;background:var(--sn-accent)"></span>
+                    <span style="width:16%;background:var(--sn-card2)"></span>
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:8px;margin-top:14px">
+                    <div style="display:flex;align-items:center;gap:9px;font:500 13px var(--sn-body)"><span style="width:9px;height:9px;border-radius:999px;background:var(--sn-ok)"></span><span style="flex:1">Already in the cloud — safe to clear</span><span style="color:var(--sn-muted)">820 MB</span></div>
+                    <div style="display:flex;align-items:center;gap:9px;font:500 13px var(--sn-body)"><span style="width:9px;height:9px;border-radius:999px;background:var(--sn-accent)"></span><span style="flex:1">Waiting to upload — keep</span><span style="color:var(--sn-muted)">370 MB</span></div>
+                    <div style="display:flex;align-items:center;gap:9px;font:500 13px var(--sn-body)"><span style="width:9px;height:9px;border-radius:999px;background:var(--sn-card2)"></span><span style="flex:1">Thumbnails &amp; cache</span><span style="color:var(--sn-muted)">210 MB</span></div>
+                  </div>
+                  <button data-act="sheet:close" style="width:100%;height:46px;margin-top:16px;border:0;border-radius:999px;background:var(--sn-accent);color:#fff;font:700 14.5px var(--sn-body);cursor:pointer">Free up 820 MB</button>
+                  <div style="text-align:center;font:400 11.5px/1.45 var(--sn-body);color:var(--sn-faint);margin-top:9px">Only removes local copies of files already backed up. Nothing leaves the cloud.</div>
+                </div>
+              </div>
+              <div style="padding:22px 20px 8px;font:700 11px var(--sn-body);letter-spacing:.09em;text-transform:uppercase;color:var(--sn-faint)">Biggest items</div>
+              <div style="padding:0 20px;display:flex;flex-direction:column;gap:9px">
+                <div style="display:flex;align-items:center;gap:12px;padding:11px 14px;border:1px solid var(--sn-line);border-radius:var(--sn-r2);background:var(--sn-card)"><span style="width:40px;height:40px;flex:none;border-radius:13px;background:linear-gradient(160deg,#c9cfd6,#9aa4b0)"></span><span style="flex:1"><span style="display:block;font:600 14.5px var(--sn-body)">Evento Miami 06</span><span style="display:block;font:400 12px var(--sn-body);color:var(--sn-muted)">Video · 1:04</span></span><span style="font:600 13px var(--sn-body);color:var(--sn-muted)">188 MB</span></div>
+                <div style="display:flex;align-items:center;gap:12px;padding:11px 14px;border:1px solid var(--sn-line);border-radius:var(--sn-r2);background:var(--sn-card)"><span style="width:40px;height:40px;flex:none;border-radius:13px;background:linear-gradient(145deg,#cfd9c6,#8fa073)"></span><span style="flex:1"><span style="display:block;font:600 14.5px var(--sn-body)">Evento Miami 05</span><span style="display:block;font:400 12px var(--sn-body);color:var(--sn-muted)">Video · 0:47</span></span><span style="font:600 13px var(--sn-body);color:var(--sn-muted)">142 MB</span></div>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isOnboard }}" hint-placeholder-val="{{ false }}">
+            <div style="min-height:874px;background:var(--sn-bg);display:flex;flex-direction:column;padding:58px 24px 44px">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <div style="font-family:var(--sn-display);font-weight:var(--sn-dw);letter-spacing:var(--sn-dls);font-size:19px">SnapNest</div>
+                <button data-act="onboard:skip" style="border:0;background:transparent;color:var(--sn-muted);font:600 14px var(--sn-body);cursor:pointer">Skip</button>
+              </div>
+
+              <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:26px">
+                <sc-if value="{{ ob0 }}" hint-placeholder-val="{{ true }}">
+                  <div style="position:relative;height:250px">
+                    <span style="position:absolute;left:50%;top:0;transform:translateX(-50%);width:230px;height:230px;border-radius:999px;background:var(--sn-accent-soft)"></span>
+                    <span style="position:absolute;left:52px;top:38px;width:132px;height:176px;border-radius:26px;background:#1b1917;box-shadow:var(--sn-sh-lg)"></span>
+                    <span style="position:absolute;left:66px;top:56px;width:104px;height:118px;border-radius:16px;background:linear-gradient(150deg,#ffd9c0,#c98d5e)"></span>
+                    <span style="position:absolute;left:104px;top:182px;width:28px;height:28px;border-radius:999px;border:3px solid #fdfaf4"></span>
+                  </div>
+                  <div>
+                    <div style="font-family:var(--sn-display);font-weight:var(--sn-dw);letter-spacing:var(--sn-dls);font-size:32px;line-height:1.12">Shoot. It backs<br>itself up.</div>
+                    <div style="font:400 15px/1.6 var(--sn-body);color:var(--sn-muted);margin-top:12px;text-wrap:pretty">The upload starts before you've lowered the phone. Lock the screen, walk away — it keeps going.</div>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ ob1 }}" hint-placeholder-val="{{ false }}">
+                  <div style="position:relative;height:250px">
+                    <span style="position:absolute;left:50%;top:10px;transform:translateX(-50%);width:210px;height:210px;border-radius:999px;background:var(--sn-ok-soft)"></span>
+                    <span style="position:absolute;left:34px;top:70px;right:34px;padding:14px 16px;border-radius:20px;background:var(--sn-card);box-shadow:var(--sn-sh);font:600 15px var(--sn-body)">Evento Miami 03</span>
+                    <span style="position:absolute;left:52px;top:132px;right:52px;padding:11px 14px;border-radius:16px;background:var(--sn-card2);font:400 11px 'IBM Plex Mono',ui-monospace,monospace;color:var(--sn-faint);text-decoration:line-through">snapnest-1784917885336.jpg</span>
+                  </div>
+                  <div>
+                    <div style="font-family:var(--sn-display);font-weight:var(--sn-dw);letter-spacing:var(--sn-dls);font-size:32px;line-height:1.12">Names your<br>editor can read</div>
+                    <div style="font:400 15px/1.6 var(--sn-body);color:var(--sn-muted);margin-top:12px;text-wrap:pretty">Pick a folder before you shoot and every capture is named after it, numbered in order. No more timestamps.</div>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ ob2 }}" hint-placeholder-val="{{ false }}">
+                  <div style="position:relative;height:250px">
+                    <span style="position:absolute;left:50%;top:14px;transform:translateX(-50%);width:200px;height:200px;border-radius:999px;background:var(--sn-accent-soft)"></span>
+                    <span style="position:absolute;left:30px;top:88px;width:80px;height:80px;border-radius:24px;background:var(--sn-card);box-shadow:var(--sn-sh);display:flex;align-items:center;justify-content:center;color:var(--sn-accent)"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="3"></rect><circle cx="12" cy="12.5" r="3.4"></circle></svg></span>
+                    <span style="position:absolute;right:30px;top:88px;width:80px;height:80px;border-radius:24px;background:var(--sn-card);box-shadow:var(--sn-sh);display:flex;align-items:center;justify-content:center;color:var(--sn-ok-deep)"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V5a1 1 0 011-1h6a1 1 0 011 1v16"></path><path d="M13 10h4a1 1 0 011 1v10"></path></svg></span>
+                    <span style="position:absolute;left:118px;top:124px;width:56px;height:8px;border-radius:999px;background:var(--sn-accent)"></span>
+                  </div>
+                  <div>
+                    <div style="font-family:var(--sn-display);font-weight:var(--sn-dw);letter-spacing:var(--sn-dls);font-size:32px;line-height:1.12">Your editors get<br>it instantly</div>
+                    <div style="font:400 15px/1.6 var(--sn-body);color:var(--sn-muted);margin-top:12px;text-wrap:pretty">Submit to an agency folder and the studio pulls the originals from their dashboard. You'll hear back here.</div>
+                  </div>
+                </sc-if>
+              </div>
+
+              <div style="display:flex;align-items:center;justify-content:center;gap:7px;margin-bottom:18px">
+                <span style="width:{{ dot0w }};height:7px;border-radius:999px;background:{{ dot0 }}"></span>
+                <span style="width:{{ dot1w }};height:7px;border-radius:999px;background:{{ dot1 }}"></span>
+                <span style="width:{{ dot2w }};height:7px;border-radius:999px;background:{{ dot2 }}"></span>
+              </div>
+              <button data-act="onboard:next" style="height:54px;border:0;border-radius:999px;background:var(--sn-accent);color:#fff;font:700 16px var(--sn-body);cursor:pointer">{{ obCta }}</button>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isLogin }}" hint-placeholder-val="{{ false }}">
+            <div style="min-height:874px;background:var(--sn-bg);padding:76px 24px 40px;display:flex;flex-direction:column">
+              <div style="width:52px;height:52px;border-radius:18px;background:var(--sn-accent);color:#fff;display:flex;align-items:center;justify-content:center;margin-bottom:26px">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="3"></rect><circle cx="12" cy="12.5" r="3.4"></circle></svg>
+              </div>
+              <div style="font-family:var(--sn-display);font-weight:var(--sn-dw);letter-spacing:var(--sn-dls);font-size:34px;line-height:1.12">Welcome back</div>
+              <div style="font:400 15px var(--sn-body);color:var(--sn-muted);margin-top:8px">Log in to keep your captures flowing.</div>
+
+              <div style="margin-top:28px;display:flex;flex-direction:column;gap:14px">
+                <label style="display:block">
+                  <span style="display:block;font:600 12.5px var(--sn-body);color:var(--sn-muted);margin-bottom:7px;letter-spacing:.02em">Email</span>
+                  <span style="display:flex;align-items:center;height:52px;padding:0 18px;border-radius:999px;border:1px solid var(--sn-line2);background:var(--sn-card);font:400 15.5px var(--sn-body);color:var(--sn-text)">raphy@raphsant.com</span>
+                </label>
+                <label style="display:block">
+                  <span style="display:block;font:600 12.5px var(--sn-body);color:var(--sn-muted);margin-bottom:7px;letter-spacing:.02em">Password</span>
+                  <span style="display:flex;align-items:center;height:52px;padding:0 18px;border-radius:999px;border:1px solid var(--sn-accent);background:var(--sn-card)">
+                    <span style="flex:1;font:400 15.5px var(--sn-body);letter-spacing:.14em">••••••••••</span>
+                    <span style="font:600 14px var(--sn-body);color:var(--sn-accent)">Show</span>
+                  </span>
+                </label>
+                <div style="display:flex;justify-content:flex-end"><button data-act="go:forgot" style="border:0;background:transparent;color:var(--sn-accent);font:600 13.5px var(--sn-body);cursor:pointer">Forgot password?</button></div>
+                <button data-act="go:onboard" style="height:54px;border:0;border-radius:999px;background:var(--sn-accent);color:#fff;font:700 16px var(--sn-body);cursor:pointer">Log in</button>
+                <button data-act="go:camera" style="height:54px;border:1px solid var(--sn-line2);border-radius:999px;background:var(--sn-card);color:var(--sn-text);font:600 15.5px var(--sn-body);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:9px">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M16.2 12.7c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.1-2.7.8-3.4.8-.7 0-1.8-.8-3-.8-1.5 0-2.9.9-3.7 2.3-1.6 2.7-.4 6.8 1.1 9 .8 1.1 1.7 2.3 2.9 2.2 1.2 0 1.6-.7 3-.7s1.8.7 3 .7 2-1.1 2.8-2.2c.9-1.3 1.3-2.5 1.3-2.6-.1 0-2.6-1-2.6-3.4zM14 5.4c.6-.8 1-1.9.9-3-1 0-2.2.7-2.9 1.5-.6.7-1.1 1.8-1 2.9 1.1.1 2.3-.6 3-1.4z"></path></svg>
+                  Continue with Apple
+                </button>
+              </div>
+              <div style="flex:1"></div>
+              <div style="text-align:center;font:400 14px var(--sn-body);color:var(--sn-muted)">New here? <button data-act="go:signup" style="border:0;background:transparent;color:var(--sn-accent);font:700 14px var(--sn-body);cursor:pointer;padding:0">Create an account</button></div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isSignup }}" hint-placeholder-val="{{ false }}">
+            <div style="min-height:874px;background:var(--sn-bg);padding:56px 24px 40px;display:flex;flex-direction:column">
+              <button data-act="go:login" style="align-self:flex-start;display:flex;align-items:center;gap:2px;height:38px;padding:0 8px 0 0;border:0;background:transparent;color:var(--sn-accent);font:600 15.5px var(--sn-body);cursor:pointer">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg>Log in
+              </button>
+              <div style="font-family:var(--sn-display);font-weight:var(--sn-dw);letter-spacing:var(--sn-dls);font-size:32px;line-height:1.12;margin-top:16px">Create your<br>account</div>
+              <div style="font:400 15px var(--sn-body);color:var(--sn-muted);margin-top:8px">Two minutes, then you can start shooting.</div>
+              <div style="margin-top:24px;display:flex;flex-direction:column;gap:14px">
+                <label style="display:block">
+                  <span style="display:block;font:600 12.5px var(--sn-body);color:var(--sn-muted);margin-bottom:7px">First name</span>
+                  <span style="display:flex;align-items:center;height:52px;padding:0 18px;border-radius:999px;border:1px solid var(--sn-line2);background:var(--sn-card);font:400 15.5px var(--sn-body);color:var(--sn-faint)">Rafael</span>
+                </label>
+                <label style="display:block">
+                  <span style="display:block;font:600 12.5px var(--sn-body);color:var(--sn-muted);margin-bottom:7px">Email</span>
+                  <span style="display:flex;align-items:center;height:52px;padding:0 18px;border-radius:999px;border:1px solid var(--sn-line2);background:var(--sn-card);font:400 15.5px var(--sn-body);color:var(--sn-faint)">you@studio.com</span>
+                </label>
+                <label style="display:block">
+                  <span style="display:block;font:600 12.5px var(--sn-body);color:var(--sn-muted);margin-bottom:7px">Password</span>
+                  <span style="display:flex;align-items:center;height:52px;padding:0 18px;border-radius:999px;border:1px solid var(--sn-line2);background:var(--sn-card)"><span style="flex:1;font:400 15.5px var(--sn-body);letter-spacing:.14em">••••••••</span><span style="font:600 14px var(--sn-body);color:var(--sn-accent)">Show</span></span>
+                  <span style="display:flex;gap:5px;margin-top:9px">
+                    <span style="flex:1;height:4px;border-radius:999px;background:var(--sn-ok)"></span>
+                    <span style="flex:1;height:4px;border-radius:999px;background:var(--sn-ok)"></span>
+                    <span style="flex:1;height:4px;border-radius:999px;background:var(--sn-card2)"></span>
+                  </span>
+                  <span style="display:block;font:400 12px var(--sn-body);color:var(--sn-muted);margin-top:6px">Good — add one number to make it strong.</span>
+                </label>
+                <button data-act="go:onboard" style="height:54px;border:0;border-radius:999px;background:var(--sn-accent);color:#fff;font:700 16px var(--sn-body);cursor:pointer">Create account</button>
+                <div style="font:400 11.5px/1.5 var(--sn-body);color:var(--sn-faint);text-align:center">By continuing you agree to the terms and privacy policy.</div>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isForgot }}" hint-placeholder-val="{{ false }}">
+            <div style="min-height:874px;background:var(--sn-bg);padding:56px 24px 40px;display:flex;flex-direction:column">
+              <button data-act="go:login" style="align-self:flex-start;display:flex;align-items:center;gap:2px;height:38px;padding:0 8px 0 0;border:0;background:transparent;color:var(--sn-accent);font:600 15.5px var(--sn-body);cursor:pointer">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg>Log in
+              </button>
+              <div style="font-family:var(--sn-display);font-weight:var(--sn-dw);letter-spacing:var(--sn-dls);font-size:32px;line-height:1.12;margin-top:18px">Reset your<br>password</div>
+              <div style="font:400 15px/1.6 var(--sn-body);color:var(--sn-muted);margin-top:10px;text-wrap:pretty">Tell us the email on your account and we'll send a six-digit code.</div>
+              <div style="margin-top:24px;display:flex;flex-direction:column;gap:14px">
+                <label style="display:block">
+                  <span style="display:block;font:600 12.5px var(--sn-body);color:var(--sn-muted);margin-bottom:7px">Email</span>
+                  <span style="display:flex;align-items:center;height:52px;padding:0 18px;border-radius:999px;border:1px solid var(--sn-accent);background:var(--sn-card);font:400 15.5px var(--sn-body)">raphy@raphsant.com</span>
+                </label>
+                <button data-act="go:login" style="height:54px;border:0;border-radius:999px;background:var(--sn-accent);color:#fff;font:700 16px var(--sn-body);cursor:pointer">Send the code</button>
+              </div>
+              <div style="margin-top:20px;padding:15px 16px;border-radius:var(--sn-r2);background:var(--sn-card2);font:400 12.5px/1.55 var(--sn-body);color:var(--sn-muted)">Nothing arrived? Check spam, or wait 60 seconds and ask again. Codes expire after 10 minutes.</div>
+            </div>
+          </sc-if>
+
+        </div>
+
+        <sc-if value="{{ showTabs }}" hint-placeholder-val="{{ true }}">
+          <div style="position:absolute;left:14px;right:14px;bottom:26px;height:64px;border-radius:999px;background:var(--sn-glass);backdrop-filter:blur(20px);border:1px solid var(--sn-line);box-shadow:var(--sn-sh-lg);display:grid;grid-template-columns:1fr 1fr 78px 1fr 1fr;align-items:center;z-index:40">
+            <button data-act="tab:folders" style="border:0;background:transparent;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0;color:{{ cFolders }};cursor:pointer">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a2 2 0 012-2h3.5l2 2H19a2 2 0 012 2v7a2 2 0 01-2 2H5a2 2 0 01-2-2z"></path></svg>
+              <span style="font:600 10px var(--sn-body)">Folders</span>
+            </button>
+            <button data-act="tab:activity" style="border:0;background:transparent;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0;color:{{ cActivity }};cursor:pointer;position:relative">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20a8 8 0 100-16 8 8 0 000 16z"></path><path d="M12 8.5V12l2.5 1.8"></path></svg>
+              <span style="font:600 10px var(--sn-body)">Uploads</span>
+              <sc-if value="{{ hasPending }}" hint-placeholder-val="{{ false }}">
+                <span style="position:absolute;top:3px;right:20px;width:8px;height:8px;border-radius:999px;background:var(--sn-accent);border:1.5px solid var(--sn-card)"></span>
+              </sc-if>
+            </button>
+            <div style="display:flex;justify-content:center">
+              <button data-act="tab:camera" style="width:60px;height:60px;margin-top:-16px;border:3px solid var(--sn-card);border-radius:999px;background:var(--sn-accent);box-shadow:0 8px 20px rgba(140,73,26,.35);display:flex;align-items:center;justify-content:center;color:#fff;cursor:pointer;animation:snpulse 3s ease-in-out infinite">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="3"></rect><circle cx="12" cy="12.5" r="3.4"></circle><path d="M8.5 6l1.4-2h4.2L15.5 6"></path></svg>
+              </button>
+            </div>
+            <button data-act="tab:agency" style="border:0;background:transparent;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0;color:{{ cAgency }};cursor:pointer">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V5a1 1 0 011-1h6a1 1 0 011 1v16"></path><path d="M13 10h4a1 1 0 011 1v10"></path><path d="M8 8h2M8 12h2M8 16h2"></path></svg>
+              <span style="font:600 10px var(--sn-body)">Agency</span>
+            </button>
+            <button data-act="tab:settings" style="border:0;background:transparent;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0;color:{{ cSettings }};cursor:pointer">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"></path><circle cx="15" cy="7" r="2.4"></circle><circle cx="9" cy="17" r="2.4"></circle></svg>
+              <span style="font:600 10px var(--sn-body)">Settings</span>
+            </button>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ flash }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;inset:0;background:#fff;z-index:80;pointer-events:none"></div>
+        </sc-if>
+
+        <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;left:16px;right:16px;bottom:104px;z-index:70;display:flex;align-items:center;gap:11px;padding:12px 15px;border-radius:var(--sn-r2);background:rgba(32,30,29,.92);backdrop-filter:blur(12px);box-shadow:var(--sn-sh-lg)">
+            <span style="width:24px;height:24px;flex:none;border-radius:999px;background:var(--sn-ok);display:flex;align-items:center;justify-content:center;color:#fff"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-10"></path></svg></span>
+            <div style="flex:1;min-width:0"><div style="font:600 13.5px var(--sn-body);color:#fdfaf4">{{ toastTitle }}</div><div style="font:400 11.5px var(--sn-body);color:rgba(253,250,244,.6)">{{ toastSub }}</div></div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ sheetDest }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;inset:0;z-index:90;background:rgba(20,19,18,.45);display:flex;align-items:flex-end">
+            <div style="width:100%;background:var(--sn-card);border-radius:30px 30px 0 0;padding:10px 0 34px;box-shadow:var(--sn-sh-lg)">
+              <div style="width:38px;height:5px;border-radius:999px;background:var(--sn-line2);margin:0 auto 14px"></div>
+              <div style="padding:0 20px 4px;display:flex;align-items:baseline;justify-content:space-between">
+                <div style="font-family:var(--sn-display);font-weight:var(--sn-dw);letter-spacing:var(--sn-dls);font-size:22px">Send captures to</div>
+                <button data-act="sheet:close" style="border:0;background:transparent;color:var(--sn-accent);font:600 15px var(--sn-body);cursor:pointer">Done</button>
+              </div>
+              <div style="padding:2px 20px 10px;font:400 13px/1.5 var(--sn-body);color:var(--sn-muted)">Everything you shoot next lands here and gets an auto name.</div>
+              <div style="display:flex;flex-direction:column">
+                <button data-act="dest:Evento Miami" style="display:flex;align-items:center;gap:13px;padding:13px 20px;border:0;background:transparent;cursor:pointer;text-align:left">
+                  <span style="width:42px;height:42px;flex:none;border-radius:14px;background:linear-gradient(150deg,#ffd9c0,#c98d5e)"></span>
+                  <span style="flex:1"><span style="display:block;font:600 15.5px var(--sn-body);color:var(--sn-text)">Evento Miami</span><span style="display:block;font:400 12.5px var(--sn-body);color:var(--sn-muted);margin-top:1px">Next name · Evento Miami 04</span></span>
+                  <span style="width:24px;height:24px;border-radius:999px;background:var(--sn-accent);display:flex;align-items:center;justify-content:center;color:#fff"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-10"></path></svg></span>
+                </button>
+                <button data-act="dest:Ads · Q3" style="display:flex;align-items:center;gap:13px;padding:13px 20px;border:0;background:transparent;cursor:pointer;text-align:left">
+                  <span style="width:42px;height:42px;flex:none;border-radius:14px;background:linear-gradient(140deg,#cdd8c0,#9aa885)"></span>
+                  <span style="flex:1"><span style="display:block;font:600 15.5px var(--sn-body);color:var(--sn-text)">Ads · Q3</span><span style="display:block;font:400 12.5px var(--sn-body);color:var(--sn-muted);margin-top:1px">4 files</span></span>
+                </button>
+                <button data-act="dest:Product flat lays" style="display:flex;align-items:center;gap:13px;padding:13px 20px;border:0;background:transparent;cursor:pointer;text-align:left">
+                  <span style="width:42px;height:42px;flex:none;border-radius:14px;background:linear-gradient(155deg,#d7c4b0,#8f7a68)"></span>
+                  <span style="flex:1"><span style="display:block;font:600 15.5px var(--sn-body);color:var(--sn-text)">Product flat lays</span><span style="display:block;font:400 12.5px var(--sn-body);color:var(--sn-muted);margin-top:1px">23 files</span></span>
+                </button>
+                <button data-act="dest:Unfiled" style="display:flex;align-items:center;gap:13px;padding:13px 20px;border:0;background:transparent;cursor:pointer;text-align:left">
+                  <span style="width:42px;height:42px;flex:none;border-radius:14px;background:var(--sn-card2);display:flex;align-items:center;justify-content:center;color:var(--sn-muted)"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 13l2-7h12l2 7"></path><path d="M4 13h4l1 3h6l1-3h4v5a2 2 0 01-2 2H6a2 2 0 01-2-2z"></path></svg></span>
+                  <span style="flex:1"><span style="display:block;font:600 15.5px var(--sn-body);color:var(--sn-text)">Unfiled</span><span style="display:block;font:400 12.5px var(--sn-body);color:var(--sn-muted);margin-top:1px">Decide later · 46 files</span></span>
+                </button>
+              </div>
+              <div style="padding:12px 20px 0">
+                <button data-act="sheet:close" style="width:100%;height:48px;border:1px dashed var(--sn-line2);border-radius:999px;background:transparent;color:var(--sn-accent);font:600 14.5px var(--sn-body);cursor:pointer">+ New folder</button>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+      </div>
+    </x-import>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:700,&quot;height&quot;:960},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;organic&quot;,&quot;hybrid&quot;,&quot;blue&quot;],&quot;default&quot;:&quot;organic&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Direction&quot;},&quot;network&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;wifi&quot;,&quot;cellular&quot;,&quot;offline&quot;],&quot;default&quot;:&quot;wifi&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Simulation&quot;},&quot;inAgency&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Simulation&quot;},&quot;uploadOnCellular&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Simulation&quot;}}">
+const ACCENT = 'var(--sn-accent)';
+const MUTED = 'var(--sn-faint)';
+
+class Component extends DCLogic {
+  state = {
+    screen: 'camera',
+    theme: null,
+    net: null,
+    inAgency: null,
+    mode: 'photo',
+    recording: false,
+    elapsed: 0,
+    countdown: null,
+    timer: 0,
+    grid: false,
+    torch: false,
+    flash: false,
+    dest: 'Evento Miami',
+    sheet: null,
+    toast: null,
+    selectMode: false,
+    sel: {},
+    filter: 'all',
+    onboardStep: 0,
+    seq: 3,
+    shots: 0,
+    queue: [],
+    doneToday: 12,
+  };
+
+  componentDidMount() {
+    this.tick = setInterval(() => this.advance(), 320);
+  }
+
+  componentWillUnmount() {
+    clearInterval(this.tick);
+    clearInterval(this.rec);
+    clearInterval(this.cd);
+  }
+
+  get theme() { return this.state.theme ?? this.props.theme ?? 'organic'; }
+  get net() { return this.state.net ?? this.props.network ?? 'wifi'; }
+  get inAgency() { return this.state.inAgency ?? this.props.inAgency ?? true; }
+  get cellularOk() { return this.props.uploadOnCellular ?? false; }
+  get paused() { return this.net === 'offline' || (this.net === 'cellular' && !this.cellularOk); }
+
+  advance() {
+    if (this.paused) return;
+    const q = this.state.queue;
+    if (!q.length) return;
+    let done = 0;
+    const next = q.map((it, i) => {
+      if (it.pct >= 100) return it;
+      if (i === 0 || q[i - 1].pct >= 100) {
+        const pct = Math.min(100, it.pct + 7);
+        if (pct >= 100) done += 1;
+        return { ...it, pct };
+      }
+      return it;
+    });
+    const keep = next.filter((it) => it.pct < 100);
+    this.setState({ queue: keep, doneToday: this.state.doneToday + done });
+  }
+
+  go(screen) {
+    this.setState({ screen, selectMode: false, sel: {}, sheet: null });
+    const el = document.querySelector('[data-scroll="1"]');
+    if (el) el.scrollTop = 0;
+  }
+
+  shoot() {
+    if (this.state.mode === 'video') {
+      if (this.state.recording) {
+        clearInterval(this.rec);
+        this.setState({ recording: false });
+        this.enqueue('video');
+        return;
+      }
+      this.setState({ recording: true, elapsed: 0 });
+      this.rec = setInterval(() => this.setState((s) => ({ elapsed: s.elapsed + 1 })), 1000);
+      return;
+    }
+    if (this.state.timer > 0 && this.state.countdown === null) {
+      let n = this.state.timer;
+      this.setState({ countdown: n });
+      this.cd = setInterval(() => {
+        n -= 1;
+        if (n <= 0) { clearInterval(this.cd); this.setState({ countdown: null }); this.capture(); return; }
+        this.setState({ countdown: n });
+      }, 1000);
+      return;
+    }
+    this.capture();
+  }
+
+  capture() {
+    this.setState({ flash: true });
+    setTimeout(() => this.setState({ flash: false }), 110);
+    this.enqueue('photo');
+  }
+
+  enqueue(kind) {
+    const seq = this.state.seq + 1;
+    const name = `${this.state.dest} ${String(seq).padStart(2, '0')}`;
+    const item = { id: `q${Date.now()}`, name, kind, pct: 0, size: kind === 'photo' ? '0.4 MB' : '18.8 MB' };
+    this.setState((s) => ({ seq, shots: s.shots + 1, queue: [...s.queue, item] }));
+    const sub = this.paused
+      ? (this.net === 'offline' ? 'Saved on device · will upload on Wi-Fi' : 'Waiting for Wi-Fi')
+      : 'Uploading now';
+    this.setState({ toast: { title: `${name} saved`, sub } });
+    clearTimeout(this.tt);
+    this.tt = setTimeout(() => this.setState({ toast: null }), 2600);
+  }
+
+  onClick = (e) => {
+    const el = e.target.closest('[data-act]');
+    if (!el) return;
+    const [verb, arg] = el.getAttribute('data-act').split(/:(.*)/s);
+    const s = this.state;
+    switch (verb) {
+      case 'go': this.go(arg); break;
+      case 'tab':
+        if (arg === 'agency') { this.go(this.inAgency ? 'agency' : 'agencyUpsell'); break; }
+        this.go(arg);
+        break;
+      case 'theme': this.setState({ theme: arg }); break;
+      case 'net': this.setState({ net: arg }); break;
+      case 'agency:toggle': break;
+      case 'agency': this.setState({ inAgency: !this.inAgency }); break;
+      case 'mode': this.setState({ mode: arg }); break;
+      case 'shoot': this.shoot(); break;
+      case 'grid': this.setState({ grid: !s.grid }); break;
+      case 'torch': this.setState({ torch: !s.torch }); break;
+      case 'timer': this.setState({ timer: s.timer === 0 ? 3 : s.timer === 3 ? 10 : 0 }); break;
+      case 'sheet': this.setState({ sheet: arg === 'close' ? null : arg }); break;
+      case 'dest': this.setState({ dest: arg, sheet: null }); break;
+      case 'select': this.setState({ selectMode: !s.selectMode, sel: {} }); break;
+      case 'sel': {
+        const sel = { ...s.sel };
+        if (sel[arg]) delete sel[arg]; else sel[arg] = true;
+        this.setState({ sel, selectMode: true });
+        break;
+      }
+      case 'selall': this.setState({ sel: { 1: 1, 2: 1, 3: 1, 4: 1, 5: 1, 6: 1 }, selectMode: true }); break;
+      case 'filter': this.setState({ filter: arg }); break;
+      case 'onboard':
+        if (arg === 'next') {
+          if (s.onboardStep >= 2) this.go('login'); else this.setState({ onboardStep: s.onboardStep + 1 });
+        } else this.go('login');
+        break;
+      case 'retry': this.setState({ net: 'wifi' }); break;
+      default: break;
+    }
+  };
+
+  renderVals() {
+    const s = this.state;
+    const screen = s.screen;
+    const net = this.net;
+    const paused = this.paused;
+    const q = s.queue;
+    const active = q.length > 0;
+    const pct = active ? q[0].pct : 100;
+    const authScreens = ['login', 'signup', 'forgot', 'onboard'];
+    const bare = ['viewer', 'viewerVideo', ...authScreens];
+    const dark = screen === 'camera' || screen === 'cameraPerm' || screen === 'viewer' || screen === 'viewerVideo';
+
+    const mm = String(Math.floor(s.elapsed / 60)).padStart(2, '0');
+    const ss = String(s.elapsed % 60).padStart(2, '0');
+
+    let statusKind = 'ok';
+    if (active && paused) statusKind = 'wait';
+    else if (active) statusKind = 'up';
+    else if (net === 'offline') statusKind = 'off';
+
+    const statusTitle = statusKind === 'up' ? `Uploading ${q.length} ${q.length === 1 ? 'item' : 'items'}`
+      : statusKind === 'wait' ? `${q.length} waiting for Wi-Fi`
+      : statusKind === 'off' ? 'Offline — nothing pending'
+      : 'Everything is backed up';
+    const statusSub = statusKind === 'up' ? `${pct}% · ${q[0].name}`
+      : statusKind === 'wait' ? (net === 'offline' ? 'Saved on your phone. They go up the moment you reconnect.' : 'On cellular. Turn on cellular uploads to send now.')
+      : statusKind === 'off' ? 'Reconnect to keep new captures flowing.'
+      : `${s.doneToday} files today · last at 12:04`;
+
+    const selCount = Object.keys(s.sel).length;
+    const tab = screen === 'camera' ? 'camera'
+      : ['folders', 'foldersEmpty', 'folder', 'search'].includes(screen) ? 'folders'
+      : ['activity', 'activityEmpty', 'inbox'].includes(screen) ? 'activity'
+      : ['agency', 'agencyFolder', 'agencyUpsell'].includes(screen) ? 'agency'
+      : ['settings', 'storage'].includes(screen) ? 'settings' : '';
+
+    const on = (v) => (v ? 'rgba(253,250,244,.92)' : 'rgba(20,19,18,.5)');
+    const onFg = (v) => (v ? '#8c491a' : '#fff');
+
+    return {
+      theme: this.theme,
+      isDark: dark,
+      onClick: this.onClick,
+      agencyLabel: this.inAgency ? 'Member of Nido Studio' : 'No agency (show upsell)',
+      showTabs: !bare.includes(screen),
+      stickyTop: screen === 'folder' || screen === 'agencyFolder',
+
+      isCamera: screen === 'camera',
+      isCameraPerm: screen === 'cameraPerm',
+      isFolders: screen === 'folders',
+      isFoldersEmpty: screen === 'foldersEmpty',
+      isFolder: screen === 'folder',
+      isSearch: screen === 'search',
+      isViewer: screen === 'viewer',
+      isViewerVideo: screen === 'viewerVideo',
+      isActivity: screen === 'activity',
+      isActivityEmpty: screen === 'activityEmpty',
+      isInbox: screen === 'inbox',
+      isAgency: screen === 'agency',
+      isAgencyFolder: screen === 'agencyFolder',
+      isAgencyUpsell: screen === 'agencyUpsell',
+      isSettings: screen === 'settings',
+      isStorage: screen === 'storage',
+      isOnboard: screen === 'onboard',
+      isLogin: screen === 'login',
+      isSignup: screen === 'signup',
+      isForgot: screen === 'forgot',
+
+      dest: s.dest,
+      grid: s.grid,
+      recording: s.recording,
+      counting: s.countdown !== null,
+      countdown: s.countdown,
+      elapsedLabel: `${mm}:${ss}`,
+      flash: s.flash,
+      timerOff: s.timer === 0,
+      timerOn: s.timer > 0,
+      timerLabel: `${s.timer}s`,
+      torchBg: on(s.torch), torchFg: onFg(s.torch),
+      timerBg: on(s.timer > 0), timerFg: onFg(s.timer > 0),
+      gridBg: on(s.grid), gridFg: onFg(s.grid),
+      photoBg: s.mode === 'photo' ? 'rgba(253,250,244,.94)' : 'transparent',
+      photoFg: s.mode === 'photo' ? '#201e1d' : 'rgba(255,255,255,.75)',
+      videoBg: s.mode === 'video' ? 'rgba(253,250,244,.94)' : 'transparent',
+      videoFg: s.mode === 'video' ? '#201e1d' : 'rgba(255,255,255,.75)',
+      shutterSize: s.recording ? '30px' : '66px',
+      shutterRadius: s.recording ? '9px' : '999px',
+      shutterFill: s.recording ? '#b23a2d' : (s.mode === 'video' ? '#b23a2d' : '#fdfaf4'),
+      shotsLabel: s.shots > 0 ? `${s.shots} this\nsession` : '',
+      uploadingNow: active && !paused,
+      pctLabel: `${pct}%`,
+      camStatusShort: statusKind === 'up' ? `${pct}%` : statusKind === 'wait' ? `${q.length} waiting` : statusKind === 'off' ? 'Offline' : 'Backed up',
+      dotColor: statusKind === 'ok' ? 'var(--sn-ok)' : statusKind === 'up' ? 'var(--sn-accent)' : 'var(--sn-warn)',
+
+      hasPending: active,
+      statusKind,
+      statusOk: statusKind === 'ok',
+      statusUp: statusKind === 'up',
+      statusWait: statusKind === 'wait',
+      statusOff: statusKind === 'off',
+      statusTitle, statusSub,
+      barPct: `${pct}%`,
+      queue: q.map((it) => ({ ...it, w: `${it.pct}%`, pctLabel: `${it.pct}%`, kindLabel: it.kind === 'photo' ? 'Photo' : 'Video' })),
+      queueCount: q.length,
+
+      toast: s.toast !== null,
+      toastTitle: s.toast?.title ?? '',
+      toastSub: s.toast?.sub ?? '',
+      sheetDest: s.sheet === 'dest',
+
+      selectMode: s.selectMode,
+      selCount,
+      selLabel: selCount === 0 ? 'Select items' : `${selCount} selected`,
+      s1: !!s.sel[1], s2: !!s.sel[2], s3: !!s.sel[3], s4: !!s.sel[4], s5: !!s.sel[5], s6: !!s.sel[6],
+      s7: !!s.sel[7], s8: !!s.sel[8], s9: !!s.sel[9], s10: !!s.sel[10], s11: !!s.sel[11], s12: !!s.sel[12],
+
+      selectCta: s.selectMode ? 'Done' : 'Select',
+      fAllBg: s.filter === 'all' ? 'var(--sn-accent)' : 'transparent',
+      fAllFg: s.filter === 'all' ? '#fff' : 'var(--sn-text)',
+      fPhotoBg: s.filter === 'photos' ? 'var(--sn-accent)' : 'transparent',
+      fPhotoFg: s.filter === 'photos' ? '#fff' : 'var(--sn-text)',
+      fVideoBg: s.filter === 'videos' ? 'var(--sn-accent)' : 'transparent',
+      fVideoFg: s.filter === 'videos' ? '#fff' : 'var(--sn-text)',
+      fPendBg: s.filter === 'pending' ? 'var(--sn-accent)' : 'transparent',
+      fPendFg: s.filter === 'pending' ? '#fff' : 'var(--sn-text)',
+
+      cFolders: tab === 'folders' ? ACCENT : MUTED,
+      cActivity: tab === 'activity' ? ACCENT : MUTED,
+      cAgency: tab === 'agency' ? ACCENT : MUTED,
+      cSettings: tab === 'settings' ? ACCENT : MUTED,
+
+      onboardStep: s.onboardStep,
+      ob0: s.onboardStep === 0, ob1: s.onboardStep === 1, ob2: s.onboardStep === 2,
+      obCta: s.onboardStep === 2 ? 'Get started' : 'Continue',
+      dot0: s.onboardStep === 0 ? 'var(--sn-accent)' : 'var(--sn-line2)',
+      dot1: s.onboardStep === 1 ? 'var(--sn-accent)' : 'var(--sn-line2)',
+      dot2: s.onboardStep === 2 ? 'var(--sn-accent)' : 'var(--sn-line2)',
+      dot0w: s.onboardStep === 0 ? '24px' : '7px',
+      dot1w: s.onboardStep === 1 ? '24px' : '7px',
+      dot2w: s.onboardStep === 2 ? '24px' : '7px',
+      inAgency: this.inAgency,
+      net,
+      isOffline: net === 'offline',
+    };
+  }
+}
+
+</script>
+</body>
+</html>

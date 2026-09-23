@@ -1,21 +1,15 @@
 import React, { useCallback, useMemo } from 'react';
-import { Ionicons } from '@expo/vector-icons';
-import {
-  ActivityIndicator,
-  FlatList,
-  Modal,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Check, Folder as FolderIcon, Inbox } from 'lucide-react-native';
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useFolders } from '../hooks/useFolders';
 import type { Folder } from '../services/foldersService';
-import { colors } from '../theme/colors';
-import { spacing } from '../theme/spacing';
-import { typography } from '../theme/typography';
+import { BottomSheet } from './ui/BottomSheet';
+import { DisplayText } from './ui/DisplayText';
+import { IconTile } from './ui/IconTile';
+import { PillButton } from './ui/PillButton';
+import { createThemedStyles } from '../theme/createThemedStyles';
+import { useTheme } from '../theme/tokens';
 
 /** Fallback label before the on-demand system folder exists in the list. */
 const DEFAULT_LABEL_FALLBACK = 'Unfiled';
@@ -36,13 +30,24 @@ type DestinationRow =
   | { kind: 'default' }
   | { kind: 'folder'; folder: Folder };
 
+/**
+ * Optimistic preview of the auto-name the next capture will get. `fileCount + 1`
+ * is a client-side ESTIMATE only — the backend owns the real sequence and can
+ * diverge (concurrent uploads, deletes, gaps). Deliberately no API call for the
+ * true next number; this is a hint, not a promise.
+ */
+function nextNamePreview(label: string, fileCount: number): string {
+  return `Next name · ${label} ${String(fileCount + 1).padStart(2, '0')}`;
+}
+
 export function DestinationPickerSheet({
   visible,
   selectedFolderId,
   onSelect,
   onClose,
 }: DestinationPickerSheetProps): React.ReactElement {
-  const insets = useSafeAreaInsets();
+  const theme = useTheme();
+  const styles = useStyles();
   const foldersQuery = useFolders();
 
   const folders = foldersQuery.data ?? [];
@@ -81,7 +86,15 @@ export function DestinationPickerSheet({
         ? selectedFolderId === null
         : selectedFolderId === item.folder.id;
       const label = isDefault ? defaultLabel : item.folder.name;
-      const countLabel = isDefault ? undefined : `${item.folder.fileCount} files`;
+      const fileCount = isDefault ? systemFolder?.fileCount ?? 0 : item.folder.fileCount;
+
+      // Selected rows preview the next auto-name; unselected rows show a plain
+      // hint ("Decide later" for the catch-all, a file count for real folders).
+      const subtitle = isCurrent
+        ? nextNamePreview(label, fileCount)
+        : isDefault
+          ? 'Decide later'
+          : `${fileCount} ${fileCount === 1 ? 'file' : 'files'}`;
 
       return (
         <Pressable
@@ -95,28 +108,30 @@ export function DestinationPickerSheet({
             isCurrent && styles.rowCurrent,
           ]}
         >
-          <Ionicons
-            name={isDefault ? 'albums-outline' : 'folder-outline'}
-            size={22}
-            color={isCurrent ? colors.accentBlue : colors.primaryNavy}
+          <IconTile
+            icon={isDefault ? Inbox : FolderIcon}
+            tone={isDefault ? 'neutral' : 'accent'}
+            size={42}
           />
           <View style={styles.rowText}>
-            <Text style={[styles.rowTitle, isCurrent && styles.rowTitleCurrent]} numberOfLines={1}>
+            <Text style={styles.rowTitle} numberOfLines={1}>
               {label}
             </Text>
-            {countLabel !== undefined ? (
-              <Text style={styles.rowSubtitle}>{countLabel}</Text>
-            ) : null}
+            <Text style={styles.rowSubtitle} numberOfLines={1}>
+              {subtitle}
+            </Text>
           </View>
           {isCurrent ? (
-            <Ionicons name="checkmark" size={22} color={colors.accentBlue} />
+            <View style={styles.check}>
+              <Check size={14} color={theme.colors.white} strokeWidth={3} />
+            </View>
           ) : (
-            <View style={styles.rowSpacer} />
+            <View style={styles.checkSpacer} />
           )}
         </Pressable>
       );
     },
-    [defaultLabel, handleSelect, selectedFolderId],
+    [defaultLabel, handleSelect, selectedFolderId, systemFolder?.fileCount, theme, styles],
   );
 
   const keyExtractor = useCallback((item: DestinationRow): string => {
@@ -124,138 +139,104 @@ export function DestinationPickerSheet({
   }, []);
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose} accessible={false}>
-        <Pressable
-          style={[styles.sheet, { paddingBottom: insets.bottom + spacing.md }]}
-          onPress={(e) => e.stopPropagation()}
-          accessible={false}
-          accessibilityViewIsModal
-        >
-          <View style={styles.grabber} />
-          <Text style={styles.title}>Save captures to</Text>
+    <BottomSheet visible={visible} onClose={onClose}>
+      <View style={styles.content}>
+        <DisplayText size={22}>Send captures to</DisplayText>
+        <Text style={styles.subtitle}>
+          Everything you shoot next lands here and gets an auto name.
+        </Text>
 
-          {foldersQuery.isLoading ? (
-            <View style={styles.loadingBox}>
-              <ActivityIndicator size="large" color={colors.accentBlue} />
-            </View>
-          ) : null}
+        {foldersQuery.isLoading ? (
+          <View style={styles.loadingBox}>
+            <ActivityIndicator size="large" color={theme.colors.accent} />
+          </View>
+        ) : null}
 
-          {foldersQuery.isError ? (
-            <Text style={styles.errorText}>Could not load folders.</Text>
-          ) : null}
+        {foldersQuery.isError ? (
+          <Text style={styles.errorText}>Could not load folders.</Text>
+        ) : null}
 
-          {/* Gate only on loading: the "Unfiled" default row needs no network,
-              so it (and any cached folders) must stay selectable during an error. */}
-          {!foldersQuery.isLoading ? (
-            <FlatList
-              data={rows}
-              keyExtractor={keyExtractor}
-              renderItem={renderRow}
-              style={styles.list}
-              keyboardShouldPersistTaps="handled"
-            />
-          ) : null}
+        {/* Gate only on loading: the "Unfiled" default row needs no network, so
+            it (and any cached folders) must stay selectable during an error. */}
+        {!foldersQuery.isLoading ? (
+          <FlatList
+            data={rows}
+            keyExtractor={keyExtractor}
+            renderItem={renderRow}
+            style={styles.list}
+            keyboardShouldPersistTaps="handled"
+          />
+        ) : null}
 
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Cancel"
-            onPress={onClose}
-            style={({ pressed }) => [styles.cancelButton, pressed && styles.cancelPressed]}
-          >
-            <Text style={styles.cancelLabel}>Cancel</Text>
-          </Pressable>
-        </Pressable>
-      </Pressable>
-    </Modal>
+        <PillButton title="Done" variant="ghost" onPress={onClose} />
+      </View>
+    </BottomSheet>
   );
 }
 
-const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: colors.modalBackdrop,
-    justifyContent: 'flex-end',
+const useStyles = createThemedStyles((theme) => StyleSheet.create({
+  content: {
+    paddingHorizontal: 20,
+    paddingTop: 4,
   },
-  sheet: {
-    maxHeight: '70%',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    backgroundColor: colors.card,
-    paddingTop: spacing.sm,
-    paddingHorizontal: spacing.lg,
-  },
-  grabber: {
-    alignSelf: 'center',
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.border,
-    marginBottom: spacing.md,
-  },
-  title: {
-    ...typography.h2,
-    color: colors.primaryNavy,
-    marginBottom: spacing.md,
+  subtitle: {
+    marginTop: 6,
+    marginBottom: 14,
+    fontFamily: theme.typography.body[400],
+    fontSize: 13.5,
+    color: theme.colors.muted,
   },
   list: {
-    maxHeight: 320,
+    maxHeight: 340,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.sm,
-    borderRadius: 12,
+    gap: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    borderRadius: theme.radius.md,
   },
   rowPressed: {
-    backgroundColor: colors.accentBlueMuted,
+    backgroundColor: theme.colors.card2,
   },
   rowCurrent: {
-    backgroundColor: colors.accentBlueMuted,
+    backgroundColor: theme.colors.accentSoft,
   },
   rowText: {
     flex: 1,
     minWidth: 0,
   },
   rowTitle: {
-    ...typography.body,
-    color: colors.primaryNavy,
-    fontWeight: '600',
-  },
-  rowTitleCurrent: {
-    color: colors.accentBlue,
+    fontFamily: theme.typography.body[600],
+    fontSize: 15.5,
+    color: theme.colors.text,
   },
   rowSubtitle: {
-    ...typography.bodySmall,
-    color: colors.mutedText,
     marginTop: 2,
+    fontFamily: theme.typography.body[400],
+    fontSize: 12.5,
+    color: theme.colors.muted,
   },
-  rowSpacer: {
-    width: 22,
+  check: {
+    width: 24,
+    height: 24,
+    borderRadius: theme.radius.pill,
+    backgroundColor: theme.colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkSpacer: {
+    width: 24,
   },
   loadingBox: {
-    paddingVertical: spacing.xxl,
+    paddingVertical: 32,
     alignItems: 'center',
   },
   errorText: {
-    ...typography.bodySmall,
-    color: colors.error,
-    marginTop: spacing.sm,
-    marginBottom: spacing.sm,
+    marginVertical: 8,
+    fontFamily: theme.typography.body[500],
+    fontSize: 13,
+    color: theme.colors.danger,
   },
-  cancelButton: {
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-    marginTop: spacing.sm,
-  },
-  cancelPressed: {
-    opacity: 0.75,
-  },
-  cancelLabel: {
-    ...typography.body,
-    color: colors.mutedText,
-    fontWeight: '600',
-  },
-});
+}));

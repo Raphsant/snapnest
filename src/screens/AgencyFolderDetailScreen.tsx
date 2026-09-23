@@ -1,39 +1,40 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Ionicons } from '@expo/vector-icons';
+import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { ChevronLeft, Plus } from 'lucide-react-native';
+import { Image, type ImageSource } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
-import { LinearGradient } from 'expo-linear-gradient';
 import {
   ActivityIndicator,
   Alert,
+  FlatList,
   Pressable,
   RefreshControl,
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
+  type ListRenderItem,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { GlassCard } from '../components/GlassCard';
-import {
-  MediaThumbnailGrid,
-  type GridSelectionState,
-} from '../components/MediaThumbnailGrid';
+import { Card } from '../components/ui/Card';
+import { DisplayText } from '../components/ui/DisplayText';
+import { PillButton } from '../components/ui/PillButton';
 import { useMediaViewer } from '../context/MediaViewerContext';
-import type { ActivityFeedItem } from '../hooks/useActivityFeed';
 import { useAgencyFolderDetails } from '../hooks/useAgencyFolderDetails';
 import { useBatchViewUrls } from '../hooks/useBatchViewUrls';
+import { useMe } from '../hooks/useMe';
 import { useRefreshOnFocus } from '../hooks/useRefreshOnFocus';
 import type { AgencyFolderDetailScreenProps } from '../navigation/agencyTypes';
 import type { MediaFile } from '../services/filesService';
 import { enqueueUpload } from '../services/uploadManager';
 import { generateThumbnail } from '../services/thumbnailService';
-import { colors } from '../theme/colors';
-import { spacing } from '../theme/spacing';
-import { typography } from '../theme/typography';
+import { createThemedStyles } from '../theme/createThemedStyles';
+import { useTheme } from '../theme/tokens';
 
-/** Matches other tab screens — clears the floating GlassTabBar. */
-const TAB_BAR_BOTTOM_OFFSET = 24;
-const TAB_BAR_OUTER_HEIGHT = 72 + 32;
+const BOTTOM_PADDING = 150;
+const COLUMNS = 3;
+const GAP = 3;
+const H_PADDING = 14;
 
 type Props = AgencyFolderDetailScreenProps;
 
@@ -46,51 +47,97 @@ function inferMimeTypeFromFilename(fileName: string): string {
   return 'application/octet-stream';
 }
 
-function mediaFilesToFeedItems(files: MediaFile[]): ActivityFeedItem[] {
-  const items: ActivityFeedItem[] = files.map((file) => {
-    const ts = Date.parse(file.createdAt);
-    return {
-      kind: 'file',
-      item: file,
-      createdAt: Number.isFinite(ts) ? ts : 0,
-    };
-  });
-  items.sort((a, b) => b.createdAt - a.createdAt);
-  return items;
-}
+type CellProps = {
+  file: MediaFile;
+  size: number;
+  thumbnailUrl: string | null;
+  fullUrl: string | null;
+  isYours: boolean;
+  onPress: (file: MediaFile) => void;
+};
+
+const AgencyCell = memo(function AgencyCell({
+  file,
+  size,
+  thumbnailUrl,
+  fullUrl,
+  isYours,
+  onPress,
+}: CellProps): React.ReactElement {
+  const styles = useStyles();
+  const sources = useMemo((): ImageSource[] => {
+    const chain: ImageSource[] = [];
+    if (thumbnailUrl !== null) chain.push({ uri: thumbnailUrl, cacheKey: `${file.id}:thumb` });
+    if (fullUrl !== null) chain.push({ uri: fullUrl, cacheKey: `${file.id}:full` });
+    return chain;
+  }, [file.id, thumbnailUrl, fullUrl]);
+
+  const [sourceIndex, setSourceIndex] = useState(0);
+  useEffect(() => setSourceIndex(0), [sources]);
+  const currentSource = sources[sourceIndex] ?? null;
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={file.fileName}
+      onPress={() => onPress(file)}
+      style={[styles.cell, { width: size, height: size }]}
+    >
+      {currentSource ? (
+        <Image
+          source={currentSource}
+          style={styles.cellImage}
+          contentFit="cover"
+          transition={0}
+          cachePolicy="memory-disk"
+          onError={() => setSourceIndex((i) => i + 1)}
+        />
+      ) : (
+        <View style={styles.cellPlaceholder} />
+      )}
+      {isYours ? (
+        <View style={styles.yoursBadge}>
+          <Text style={styles.yoursText}>YOURS</Text>
+        </View>
+      ) : null}
+    </Pressable>
+  );
+});
 
 export function AgencyFolderDetailScreen({ navigation, route }: Props): React.ReactElement {
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
+  const styles = useStyles();
+  const { width } = useWindowDimensions();
   const { folderId, folderName, agencyId } = route.params;
   const { openGallery } = useMediaViewer();
+  const meQuery = useMe();
+  const myId = meQuery.data?.id;
+  const agencyName = meQuery.data?.memberships[0]?.agencyName ?? 'Workspace';
 
   const folderQuery = useAgencyFolderDetails(folderId);
 
-  const files = useMemo(
-    (): MediaFile[] => folderQuery.data?.files ?? [],
-    [folderQuery.data?.files],
-  );
-  const feedItems = useMemo(() => mediaFilesToFeedItems(files), [files]);
+  const files = useMemo((): MediaFile[] => {
+    const list = folderQuery.data?.files ?? [];
+    return list.slice().sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+  }, [folderQuery.data?.files]);
 
   const uploadedFileIds = useMemo(
     (): string[] => files.filter((f) => f.uploadStatus === 'UPLOADED').map((f) => f.id),
     [files],
   );
-
   const { data: viewUrlByFileId } = useBatchViewUrls(uploadedFileIds, agencyId);
 
-  const listBottomPad = insets.bottom + TAB_BAR_BOTTOM_OFFSET + TAB_BAR_OUTER_HEIGHT + spacing.md;
+  const yoursCount = useMemo(
+    () => (myId ? files.filter((f) => f.ownerId === myId).length : 0),
+    [files, myId],
+  );
 
   const { isLoading, isError, error, refetch, isRefetching } = folderQuery;
 
   useEffect(() => {
     void refetch();
   }, [folderId, refetch]);
-
-  // Same tab-switch gap as the personal folder detail (this screen stays mounted
-  // on blur), and it matters more here: a pipeline clip can land server-side at
-  // any moment with no upload event to invalidate on, so focus is the only
-  // trigger that will show it. Skips its first focus, so no duplicate on mount.
   useRefreshOnFocus(refetch);
 
   const handleRefresh = useCallback(() => {
@@ -100,14 +147,15 @@ export function AgencyFolderDetailScreen({ navigation, route }: Props): React.Re
   const handlePressFile = useCallback(
     (file: MediaFile) => {
       const startIndex = files.findIndex((f) => f.id === file.id);
-      if (startIndex < 0) {
-        return;
+      if (startIndex >= 0) {
+        openGallery(files, startIndex, { agencyId, readOnly: true });
       }
-      openGallery(files, startIndex, { agencyId, readOnly: true });
     },
     [agencyId, files, openGallery],
   );
 
+  // Submit-to-agency: preserved from before (image picker → agency upload),
+  // restyled into the header. The grid/viewer remain read-only.
   const handleSubmit = useCallback(async () => {
     try {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -118,24 +166,18 @@ export function AgencyFolderDetailScreen({ navigation, route }: Props): React.Re
         );
         return;
       }
-
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images', 'videos'],
         allowsMultipleSelection: false,
         quality: 1,
       });
-
       if (result.canceled || result.assets.length === 0) {
         return;
       }
-
       const asset = result.assets[0];
       const fileName = asset.fileName ?? `upload-${Date.now()}`;
       const mimeType = asset.mimeType ?? inferMimeTypeFromFilename(fileName);
-
-      // Best-effort local thumbnail; null on failure falls back to the server-side path.
       const thumbnailUri = await generateThumbnail({ localUri: asset.uri, mimeType });
-
       enqueueUpload({
         localUri: asset.uri,
         fileName,
@@ -146,217 +188,243 @@ export function AgencyFolderDetailScreen({ navigation, route }: Props): React.Re
         folderId,
         thumbnailUri,
       });
-
-      Alert.alert(
-        'Submitting',
-        'Your media is uploading and will appear in this folder shortly.',
-        [{ text: 'OK' }],
-      );
+      Alert.alert('Submitting', 'Your media is uploading and will appear in this folder shortly.', [
+        { text: 'OK' },
+      ]);
     } catch (caughtError: unknown) {
-      const message =
-        caughtError instanceof Error ? caughtError.message : 'Could not submit media.';
+      const message = caughtError instanceof Error ? caughtError.message : 'Could not submit media.';
       Alert.alert('Submit failed', message);
     }
   }, [agencyId, folderId]);
 
-  const selection = useMemo(
-    (): GridSelectionState => ({
-      isActive: false,
-      selectedIds: new Set<string>(),
-      onToggle: () => undefined,
-      onLongPressFile: () => undefined,
-    }),
-    [],
-  );
+  const size = Math.floor((width - H_PADDING * 2 - GAP * (COLUMNS - 1)) / COLUMNS);
 
-  const showInitialLoading = isLoading && feedItems.length === 0;
-  const showEmpty = !isLoading && !isError && feedItems.length === 0;
-  const showError = isError && feedItems.length === 0;
+  const renderItem: ListRenderItem<MediaFile> = useCallback(
+    ({ item }) => (
+      <AgencyCell
+        file={item}
+        size={size}
+        thumbnailUrl={viewUrlByFileId?.[item.id]?.thumbnailUrl ?? null}
+        fullUrl={viewUrlByFileId?.[item.id]?.fullUrl ?? null}
+        isYours={myId !== undefined && item.ownerId === myId}
+        onPress={handlePressFile}
+      />
+    ),
+    [handlePressFile, myId, size, viewUrlByFileId],
+  );
 
   const refreshControl = useMemo(
     () => (
       <RefreshControl
         refreshing={isRefetching}
         onRefresh={handleRefresh}
-        tintColor={colors.accentBlue}
-        colors={[colors.accentBlue]}
+        tintColor={theme.colors.accent}
+        colors={[theme.colors.accent]}
       />
     ),
     [handleRefresh, isRefetching],
   );
 
+  const showInitialLoading = isLoading && files.length === 0;
+  const showEmpty = !isLoading && !isError && files.length === 0;
+  const showError = isError && files.length === 0;
+
   return (
-    <LinearGradient
-      colors={[colors.background, colors.backgroundGradientBottom]}
-      start={{ x: 0.5, y: 0 }}
-      end={{ x: 0.5, y: 1 }}
-      style={styles.gradient}
-    >
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <View style={styles.headerRow}>
+    <View style={styles.root}>
+      <View style={[styles.header, { paddingTop: insets.top + 6 }]}>
+        <View style={styles.headerTopRow}>
           <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Go back"
-            hitSlop={12}
             onPress={() => navigation.goBack()}
-            style={({ pressed }) => [styles.backButton, pressed && styles.backPressed]}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel={`Back to ${agencyName}`}
+            style={({ pressed }) => [styles.back, pressed && styles.pressed]}
           >
-            <Ionicons name="chevron-back" size={28} color={colors.primaryNavy} />
+            <ChevronLeft size={18} color={theme.colors.accent} strokeWidth={2.4} />
+            <Text style={styles.backLabel} numberOfLines={1}>{agencyName}</Text>
           </Pressable>
-
-          <Text style={styles.headerTitle} numberOfLines={1}>
-            {folderName}
-          </Text>
-
           <Pressable
+            onPress={() => void handleSubmit()}
+            hitSlop={8}
             accessibilityRole="button"
             accessibilityLabel="Submit media to this folder"
-            hitSlop={8}
-            onPress={() => void handleSubmit()}
-            style={({ pressed }) => [styles.submitButton, pressed && styles.backPressed]}
+            style={({ pressed }) => [styles.submit, pressed && styles.pressed]}
           >
-            <Ionicons name="add-circle" size={20} color={colors.accentBlue} />
+            <Plus size={16} color={theme.colors.accent} strokeWidth={2.4} />
             <Text style={styles.submitLabel}>Submit</Text>
           </Pressable>
         </View>
 
-        {showInitialLoading ? (
-          <View style={styles.centered}>
-            <ActivityIndicator size="large" color={colors.accentBlue} />
-          </View>
-        ) : null}
+        <DisplayText size={26}>{folderName}</DisplayText>
+        <Text style={styles.meta} numberOfLines={1}>
+          {files.length} {files.length === 1 ? 'file' : 'files'} · Read-only
+          {yoursCount > 0 ? <Text style={styles.metaYours}>{`  ·  ${yoursCount} yours`}</Text> : null}
+        </Text>
+      </View>
 
-        {showError ? (
-          <View style={styles.centeredCard}>
-            <GlassCard>
-              <Text style={styles.errorTitle}>Could not load files</Text>
-              <Text style={styles.errorBody}>
-                {error instanceof Error ? error.message : 'Something went wrong.'}
-              </Text>
-              <Pressable
-                accessibilityRole="button"
-                onPress={handleRefresh}
-                style={({ pressed }) => [styles.retryButton, pressed && styles.retryPressed]}
-              >
-                <Text style={styles.retryLabel}>Tap to retry</Text>
-              </Pressable>
-            </GlassCard>
-          </View>
-        ) : null}
+      {showInitialLoading ? (
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={theme.colors.accent} />
+        </View>
+      ) : null}
 
-        {showEmpty ? (
-          <View style={styles.centeredCard}>
-            <GlassCard>
-              <View style={styles.emptyInner}>
-                <Ionicons name="document-outline" size={32} color={colors.mutedText} />
-                <Text style={styles.emptyTitle}>No files in this folder yet</Text>
-                <Text style={styles.emptyBody}>
-                  Tap Submit to add media to this agency folder
-                </Text>
-              </View>
-            </GlassCard>
-          </View>
-        ) : null}
+      {showError ? (
+        <View style={styles.centeredCard}>
+          <Card style={styles.errorCard}>
+            <Text style={styles.errorTitle}>Could not load files</Text>
+            <Text style={styles.errorBody}>
+              {error instanceof Error ? error.message : 'Something went wrong.'}
+            </Text>
+            <PillButton title="Try again" variant="secondary" height={44} onPress={handleRefresh} />
+          </Card>
+        </View>
+      ) : null}
 
-        {!showInitialLoading && !showError && feedItems.length > 0 ? (
-          <MediaThumbnailGrid
-            items={feedItems}
-            viewUrlByFileId={viewUrlByFileId}
-            onPressFile={handlePressFile}
-            selection={selection}
-            contentPaddingBottom={listBottomPad}
-            refreshControl={refreshControl}
-          />
-        ) : null}
-      </SafeAreaView>
-    </LinearGradient>
+      {showEmpty ? (
+        <View style={styles.centeredCard}>
+          <Text style={styles.emptyTitle}>No files in this folder yet</Text>
+          <Text style={styles.emptyBody}>Submitted media will appear here.</Text>
+        </View>
+      ) : null}
+
+      {!showInitialLoading && !showError && files.length > 0 ? (
+        <FlatList
+          data={files}
+          keyExtractor={(f) => f.id}
+          renderItem={renderItem}
+          numColumns={COLUMNS}
+          columnWrapperStyle={styles.column}
+          refreshControl={refreshControl}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: H_PADDING, paddingBottom: insets.bottom + BOTTOM_PADDING }}
+        />
+      ) : null}
+    </View>
   );
 }
 
-const styles = StyleSheet.create({
-  gradient: {
+const useStyles = createThemedStyles((theme) => StyleSheet.create({
+  root: {
     flex: 1,
+    backgroundColor: theme.colors.bg,
   },
-  safeArea: {
-    flex: 1,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingTop: spacing.sm,
-    marginBottom: spacing.md,
-    paddingHorizontal: spacing.lg,
-    gap: spacing.sm,
-  },
-  backButton: {
-    paddingRight: spacing.sm,
-    width: 36,
-  },
-  backPressed: {
+  pressed: {
     opacity: 0.7,
   },
-  headerTitle: {
-    ...typography.h2,
-    color: colors.primaryNavy,
-    flex: 1,
+  header: {
+    paddingHorizontal: 14,
+    paddingBottom: 10,
+    backgroundColor: theme.colors.glass,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.line,
   },
-  submitButton: {
+  headerTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  back: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    marginLeft: -4,
+    flexShrink: 1,
+  },
+  backLabel: {
+    fontFamily: theme.typography.body[600],
+    fontSize: 15.5,
+    color: theme.colors.accent,
+  },
+  submit: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingLeft: 8,
   },
   submitLabel: {
-    ...typography.bodySmall,
-    color: colors.accentBlue,
-    fontWeight: '600',
+    fontFamily: theme.typography.body[600],
+    fontSize: 15.5,
+    color: theme.colors.accent,
+  },
+  meta: {
+    marginTop: 4,
+    fontFamily: theme.typography.body[400],
+    fontSize: 12.5,
+    color: theme.colors.muted,
+  },
+  metaYours: {
+    fontFamily: theme.typography.body[600],
+    color: theme.colors.accentDeep,
+  },
+  column: {
+    gap: GAP,
+    marginBottom: GAP,
+  },
+  cell: {
+    borderRadius: 4,
+    overflow: 'hidden',
+    backgroundColor: theme.colors.card2,
+  },
+  cellImage: {
+    width: '100%',
+    height: '100%',
+  },
+  cellPlaceholder: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: theme.colors.card2,
+  },
+  yoursBadge: {
+    position: 'absolute',
+    left: 5,
+    bottom: 5,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: theme.radius.pill,
+    backgroundColor: theme.colors.accentDeep,
+  },
+  yoursText: {
+    fontFamily: theme.typography.body[700],
+    fontSize: 9,
+    letterSpacing: 0.3,
+    color: theme.colors.white,
   },
   centered: {
-    paddingVertical: spacing.xxl,
+    paddingVertical: 48,
     alignItems: 'center',
   },
   centeredCard: {
-    paddingTop: spacing.md,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: 14,
+    paddingTop: 24,
+    alignItems: 'center',
+    gap: 6,
+  },
+  errorCard: {
+    alignSelf: 'stretch',
+    padding: 16,
+    gap: 10,
   },
   errorTitle: {
-    ...typography.h2,
-    color: colors.primaryNavy,
-    marginBottom: spacing.sm,
+    fontFamily: theme.typography.body[700],
+    fontSize: 15.5,
+    color: theme.colors.text,
   },
   errorBody: {
-    ...typography.body,
-    color: colors.mutedText,
-    marginBottom: spacing.md,
-  },
-  retryButton: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: 12,
-    backgroundColor: colors.accentBlueMuted,
-  },
-  retryPressed: {
-    opacity: 0.85,
-  },
-  retryLabel: {
-    ...typography.bodySmall,
-    color: colors.accentBlue,
-    fontWeight: '600',
-  },
-  emptyInner: {
-    alignItems: 'center',
-    gap: spacing.sm,
+    fontFamily: theme.typography.body[400],
+    fontSize: 13.5,
+    color: theme.colors.muted,
   },
   emptyTitle: {
-    ...typography.h2,
-    color: colors.primaryNavy,
+    marginTop: 12,
+    fontFamily: theme.typography.body[700],
+    fontSize: 16,
+    color: theme.colors.text,
     textAlign: 'center',
   },
   emptyBody: {
-    ...typography.body,
-    color: colors.mutedText,
+    fontFamily: theme.typography.body[400],
+    fontSize: 13.5,
+    color: theme.colors.muted,
     textAlign: 'center',
   },
-});
+}));

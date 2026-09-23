@@ -4,6 +4,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 
 import { GlassTabBar } from '../components/GlassTabBar';
+import { TabScreenFade } from '../components/ScreenTransition';
 import { AuthFlow } from './AuthFlow';
 import type { MainTabParamList } from './mainTabTypes';
 import { ActivityScreen } from '../screens/ActivityScreen';
@@ -11,15 +12,16 @@ import { AgencyStack } from './AgencyStack';
 import { AgencyUpsellScreen } from '../screens/AgencyUpsellScreen';
 import { CameraScreen } from '../screens/CameraScreen';
 import { FoldersStack } from './FoldersStack';
-import { SettingsScreen } from '../screens/SettingsScreen';
+import { OnboardingScreen } from '../screens/OnboardingScreen';
+import { SettingsStack } from './SettingsStack';
 import { useMe } from '../hooks/useMe';
 import { registerIfGranted } from '../services/notificationService';
 import { processQueue } from '../services/uploadManager';
 import { selectIsAuthenticated, useAuthStore } from '../store/authStore';
+import { useOnboardingStore } from '../store/onboardingStore';
 import { useUploadQueueStore } from '../store/uploadQueueStore';
-import { colors } from '../theme/colors';
-import { spacing } from '../theme/spacing';
-import { typography } from '../theme/typography';
+import { createThemedStyles } from '../theme/createThemedStyles';
+import { useTheme } from '../theme/tokens';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
@@ -31,24 +33,26 @@ const Tab = createBottomTabNavigator<MainTabParamList>();
  */
 function AgencyTab(): React.ReactElement {
   const meQuery = useMe();
+  const theme = useTheme();
+  const styles = useAgencyTabStyles();
 
   if (meQuery.data === undefined) {
     return (
-      <View style={agencyTabStyles.container}>
+      <View style={styles.container}>
         {meQuery.isError ? (
           <>
-            <Text style={agencyTabStyles.errorText}>Couldn&apos;t load your account</Text>
+            <Text style={styles.errorText}>Couldn&apos;t load your account</Text>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Retry loading account"
               onPress={() => void meQuery.refetch()}
-              style={({ pressed }) => [agencyTabStyles.retryButton, pressed && agencyTabStyles.retryPressed]}
+              style={({ pressed }) => [styles.retryButton, pressed && styles.retryPressed]}
             >
-              <Text style={agencyTabStyles.retryLabel}>Tap to retry</Text>
+              <Text style={styles.retryLabel}>Tap to retry</Text>
             </Pressable>
           </>
         ) : (
-          <ActivityIndicator size="large" color={colors.accentBlue} />
+          <ActivityIndicator size="large" color={theme.colors.accent} />
         )}
       </View>
     );
@@ -61,33 +65,68 @@ function AgencyTab(): React.ReactElement {
   return <AgencyUpsellScreen />;
 }
 
-const agencyTabStyles = StyleSheet.create({
+const useAgencyTabStyles = createThemedStyles((t) => StyleSheet.create({
   container: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.background,
+    backgroundColor: t.colors.bg,
+    paddingHorizontal: 24,
   },
   errorText: {
-    ...typography.body,
-    color: colors.mutedText,
-    marginBottom: spacing.md,
+    fontFamily: t.typography.body[400],
+    fontSize: 14,
+    color: t.colors.muted,
+    marginBottom: 14,
+    textAlign: 'center',
   },
   retryButton: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: 12,
-    backgroundColor: colors.accentBlueMuted,
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: t.radius.pill,
+    borderWidth: 1,
+    borderColor: t.colors.line2,
   },
   retryPressed: {
     opacity: 0.85,
   },
   retryLabel: {
-    ...typography.bodySmall,
-    color: colors.accentBlue,
-    fontWeight: '600',
+    fontFamily: t.typography.body[600],
+    fontSize: 13.5,
+    color: t.colors.accent,
   },
-});
+}));
+
+// Non-camera tabs fade-lift on focus. The Camera tab is deliberately NOT wrapped
+// so the live viewfinder never fades or transforms on tab switch.
+function FoldersTabScreen(): React.ReactElement {
+  return (
+    <TabScreenFade>
+      <FoldersStack />
+    </TabScreenFade>
+  );
+}
+function UploadsTabScreen(): React.ReactElement {
+  return (
+    <TabScreenFade>
+      <ActivityScreen />
+    </TabScreenFade>
+  );
+}
+function AgencyTabScreen(): React.ReactElement {
+  return (
+    <TabScreenFade>
+      <AgencyTab />
+    </TabScreenFade>
+  );
+}
+function SettingsTabScreen(): React.ReactElement {
+  return (
+    <TabScreenFade>
+      <SettingsStack />
+    </TabScreenFade>
+  );
+}
 
 function MainTabs() {
   return (
@@ -99,7 +138,8 @@ function MainTabs() {
         headerShown: false,
       }}
     >
-      <Tab.Screen name="Folders" component={FoldersStack} options={{ title: 'Folders', tabBarLabel: 'Folders' }} />
+      <Tab.Screen name="Folders" component={FoldersTabScreen} options={{ title: 'Folders', tabBarLabel: 'Folders' }} />
+      <Tab.Screen name="Activity" component={UploadsTabScreen} options={{ title: 'Uploads', tabBarLabel: 'Uploads' }} />
       <Tab.Screen
         name="Camera"
         component={CameraScreen}
@@ -109,35 +149,41 @@ function MainTabs() {
           tabBarShowLabel: false,
         }}
       />
-      <Tab.Screen name="Activity" component={ActivityScreen} options={{ title: 'Activity', tabBarLabel: 'Activity' }} />
-      <Tab.Screen name="Agency" component={AgencyTab} options={{ title: 'Agency', tabBarLabel: 'Agency' }} />
-      <Tab.Screen name="Settings" component={SettingsScreen} options={{ title: 'Settings', tabBarLabel: 'Settings' }} />
+      <Tab.Screen name="Agency" component={AgencyTabScreen} options={{ title: 'Agency', tabBarLabel: 'Agency' }} />
+      <Tab.Screen name="Settings" component={SettingsTabScreen} options={{ title: 'Settings', tabBarLabel: 'Settings' }} />
     </Tab.Navigator>
   );
 }
 
 function SplashScreen() {
+  const theme = useTheme();
+  const styles = useSplashStyles();
   return (
-    <View style={splashStyles.container}>
-      <ActivityIndicator size="large" color={colors.accentBlue} />
+    <View style={styles.container}>
+      <ActivityIndicator size="large" color={theme.colors.accent} />
     </View>
   );
 }
 
-const splashStyles = StyleSheet.create({
+const useSplashStyles = createThemedStyles((t) => StyleSheet.create({
   container: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.background,
+    backgroundColor: t.colors.bg,
   },
-});
+}));
 
 function RootNavigationTree() {
   const hydrate = useAuthStore((s) => s.hydrate);
   const isHydrated = useAuthStore((s) => s.isHydrated);
   const isAuthenticated = useAuthStore(selectIsAuthenticated);
   const resetStuckUploads = useUploadQueueStore((s) => s.resetStuckUploads);
+  // Per-device onboarding flag. Its own AsyncStorage hydration is tracked so the
+  // gate below never branches on the default `false` before rehydration.
+  const hasSeenOnboarding = useOnboardingStore((s) => s.hasSeenOnboarding);
+  const onboardingHydrated = useOnboardingStore((s) => s.hasHydrated);
+  const markOnboardingSeen = useOnboardingStore((s) => s.markSeen);
 
   useEffect(() => {
     void hydrate();
@@ -170,12 +216,16 @@ function RootNavigationTree() {
     void registerIfGranted();
   }, [isAuthenticated, isHydrated]);
 
-  if (!isHydrated) {
+  // Hold the splash until BOTH stores have hydrated — never branch on a
+  // partially-hydrated state. The session-active effects above key off auth
+  // hydration only, so upload-queue recovery is not delayed by onboarding.
+  if (!isHydrated || !onboardingHydrated) {
     return <SplashScreen />;
   }
 
   if (isAuthenticated) {
-    return <MainTabs />;
+    // First authenticated launch on this device → onboarding, then MainTabs.
+    return hasSeenOnboarding ? <MainTabs /> : <OnboardingScreen onComplete={markOnboardingSeen} />;
   }
 
   return <AuthFlow />;

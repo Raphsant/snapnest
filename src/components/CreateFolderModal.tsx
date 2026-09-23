@@ -12,13 +12,14 @@ import {
 } from 'react-native';
 
 import { useCreateFolder } from '../hooks/useCreateFolder';
-import { colors } from '../theme/colors';
-import { spacing } from '../theme/spacing';
-import { typography } from '../theme/typography';
+import { createThemedStyles } from '../theme/createThemedStyles';
+import { useTheme } from '../theme/tokens';
 import { PrimaryButton } from './PrimaryButton';
 import { SecondaryButton } from './SecondaryButton';
 
 const MAX_NAME_LENGTH = 100;
+/** Same scrim as ui/BottomSheet: the `darkBg` token at 45%, on its own layer. */
+const SCRIM_ALPHA = 0.45;
 
 type CreateFolderModalProps = {
   visible: boolean;
@@ -45,6 +46,8 @@ function getMutationErrorMessage(error: unknown): string {
 }
 
 export function CreateFolderModal({ visible, onClose }: CreateFolderModalProps): React.ReactElement {
+  const theme = useTheme();
+  const styles = useStyles();
   const [name, setName] = useState('');
   const [submitError, setSubmitError] = useState<string | null>(null);
   const { mutate, isPending, reset } = useCreateFolder();
@@ -87,6 +90,8 @@ export function CreateFolderModal({ visible, onClose }: CreateFolderModalProps):
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
+      {/* Scrim is its own layer — `darkBg` at 45%, as in ui/BottomSheet. */}
+      <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.scrim]} />
       <Pressable style={styles.backdrop} onPress={handleClose}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -99,7 +104,7 @@ export function CreateFolderModal({ visible, onClose }: CreateFolderModalProps):
               value={name}
               onChangeText={setName}
               placeholder="e.g. Summer 2026"
-              placeholderTextColor={colors.tabInactive}
+              placeholderTextColor={theme.colors.faint}
               maxLength={MAX_NAME_LENGTH}
               autoFocus
               editable={!isPending}
@@ -127,12 +132,15 @@ export function CreateFolderModal({ visible, onClose }: CreateFolderModalProps):
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createThemedStyles((t) => StyleSheet.create({
+  scrim: {
+    backgroundColor: t.colors.darkBg,
+    opacity: SCRIM_ALPHA,
+  },
   backdrop: {
     flex: 1,
-    backgroundColor: colors.modalBackdrop,
     justifyContent: 'center',
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: 16,
   },
   keyboardAvoid: {
     width: '100%',
@@ -140,48 +148,51 @@ const styles = StyleSheet.create({
   sheet: {
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: colors.glassBorder,
-    backgroundColor: colors.card,
-    padding: spacing.xl,
-    shadowColor: colors.primaryNavy,
+    borderColor: t.colors.line,
+    backgroundColor: t.colors.card,
+    padding: 20,
+    shadowColor: t.shadows.lg.shadowColor,
     shadowOpacity: 0.12,
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 8 },
     elevation: 8,
   },
   title: {
-    ...typography.h2,
-    color: colors.primaryNavy,
-    marginBottom: spacing.lg,
+    fontFamily: t.typography.body[600],
+    fontSize: 22,
+    color: t.colors.text,
+    marginBottom: 16,
   },
   label: {
-    ...typography.bodySmall,
-    color: colors.mutedText,
-    marginBottom: spacing.sm,
-    fontWeight: '600',
+    fontFamily: t.typography.body[600],
+    fontSize: 14,
+    color: t.colors.muted,
+    marginBottom: 8,
   },
   input: {
     height: 52,
-    borderRadius: 14,
+    borderRadius: t.radius.sm,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.inputBackground,
-    paddingHorizontal: spacing.lg,
-    ...typography.body,
-    color: colors.primaryNavy,
-    marginBottom: spacing.sm,
+    borderColor: t.colors.line,
+    backgroundColor: t.colors.card,
+    paddingHorizontal: 16,
+    fontFamily: t.typography.body[400],
+    fontSize: 16,
+    color: t.colors.text,
+    marginBottom: 8,
   },
   errorText: {
-    ...typography.bodySmall,
-    color: colors.error,
-    marginBottom: spacing.md,
+    fontFamily: t.typography.body[400],
+    fontSize: 14,
+    color: t.colors.danger,
+    marginBottom: 12,
   },
   actions: {
     flexDirection: 'row',
-    gap: spacing.md,
-    marginTop: spacing.md,
+    gap: 12,
+    marginTop: 12,
   },
   actionButton: {
     flex: 1,
   },
-});
+}));

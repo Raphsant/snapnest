@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { ChevronLeft } from 'lucide-react-native';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -6,21 +7,22 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
-  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { PrimaryButton } from '../../components/PrimaryButton';
+import { PillInput } from '../../components/auth/PillInput';
+import { DisplayText } from '../../components/ui/DisplayText';
+import { PillButton } from '../../components/ui/PillButton';
 import type { AuthScreenProps } from '../../navigation/authTypes';
 import * as authService from '../../services/authService';
-import { colors } from '../../theme/colors';
-import { spacing } from '../../theme/spacing';
-import { typography } from '../../theme/typography';
+import { createThemedStyles } from '../../theme/createThemedStyles';
+import { useTheme } from '../../theme/tokens';
 
 type Props = AuthScreenProps<'ConfirmSignUp'>;
 
 export function ConfirmSignUpScreen({ navigation, route }: Props) {
+  const theme = useTheme();
+  const styles = useStyles();
   const { email, firstName } = route.params;
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -91,51 +93,50 @@ export function ConfirmSignUpScreen({ navigation, route }: Props) {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          <Text style={styles.title}>Verify your email</Text>
+          <Pressable
+            onPress={() => navigation.navigate('Login', {})}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel="Back to log in"
+            style={({ pressed }) => [styles.back, pressed && styles.pressed]}
+          >
+            <ChevronLeft size={18} color={theme.colors.accent} strokeWidth={2.4} />
+            <Text style={styles.backLabel}>Log in</Text>
+          </Pressable>
+
+          <DisplayText size={30}>Check your email</DisplayText>
           <Text style={styles.subtitle}>
-            {firstName ? `Hi ${firstName}, we sent a code to` : 'We sent a code to'}
+            {firstName ? `Hi ${firstName}, we sent a 6-digit code to` : 'We sent a 6-digit code to'}
           </Text>
           <Text style={styles.emailText}>{email}</Text>
 
-          <View style={styles.fieldGroup}>
-            <Text style={styles.label}>6-digit code</Text>
-            <TextInput
-              value={sanitizedCode}
-              onChangeText={(t) => {
-                setCode(t.replace(/\D/g, '').slice(0, 6));
-              }}
-              placeholder="000000"
-              placeholderTextColor={colors.mutedText}
-              keyboardType="number-pad"
-              maxLength={6}
-              textContentType="oneTimeCode"
-              style={styles.input}
-            />
-          </View>
+          <PillInput
+            label="6-digit code"
+            value={sanitizedCode}
+            onChangeText={(t) => setCode(t.replace(/\D/g, '').slice(0, 6))}
+            placeholder="000000"
+            keyboardType="number-pad"
+            maxLength={6}
+            textContentType="oneTimeCode"
+            inputStyle={styles.codeInput}
+            containerStyle={styles.field}
+          />
 
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-          <PrimaryButton
-            label={loading ? 'Verifying…' : 'Verify'}
-            onPress={() => {
-              void onVerify();
-            }}
+          <PillButton
+            title={loading ? 'Confirming…' : 'Confirm'}
+            height={54}
+            onPress={() => void onVerify()}
             disabled={loading || sanitizedCode.length !== 6}
-            style={styles.primaryBtn}
           />
 
-          <Pressable
-            accessibilityRole="button"
+          <PillButton
+            title="Resend code"
+            variant="ghost"
+            onPress={() => void onResend()}
             disabled={loading}
-            onPress={() => {
-              void onResend();
-            }}
-            style={styles.resendWrap}
-          >
-            <Text style={[styles.resendText, loading && styles.resendDisabled]}>
-              Didn&apos;t get the code? <Text style={styles.resendAccent}>Resend</Text>
-            </Text>
-          </Pressable>
+          />
           {resentHint ? <Text style={styles.sentHint}>{resentHint}</Text> : null}
         </ScrollView>
       </KeyboardAvoidingView>
@@ -143,84 +144,66 @@ export function ConfirmSignUpScreen({ navigation, route }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createThemedStyles((theme) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: theme.colors.bg,
   },
   flex: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: spacing.xxl,
-    paddingBottom: spacing.xxxl,
-    paddingTop: spacing.lg,
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    paddingBottom: 40,
   },
-  title: {
-    ...typography.h1,
-    color: colors.primaryNavy,
+  back: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    marginLeft: -4,
+    marginBottom: 16,
+  },
+  backLabel: {
+    fontFamily: theme.typography.body[600],
+    fontSize: 15.5,
+    color: theme.colors.accent,
+  },
+  pressed: {
+    opacity: 0.7,
   },
   subtitle: {
-    ...typography.body,
-    color: colors.mutedText,
-    marginTop: spacing.sm,
+    marginTop: 6,
+    fontFamily: theme.typography.body[400],
+    fontSize: 15,
+    color: theme.colors.muted,
   },
   emailText: {
-    ...typography.body,
-    color: colors.primaryNavy,
-    fontWeight: '600',
-    marginTop: spacing.xs,
-    marginBottom: spacing.xxl,
+    marginTop: 2,
+    marginBottom: 24,
+    fontFamily: theme.typography.body[600],
+    fontSize: 15,
+    color: theme.colors.text,
   },
-  fieldGroup: {
-    marginBottom: spacing.lg,
+  field: {
+    marginBottom: 16,
   },
-  label: {
-    ...typography.bodySmall,
-    color: colors.mutedText,
-    marginBottom: spacing.sm,
-    fontWeight: '600',
-  },
-  input: {
-    height: 52,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: 'rgba(255,255,255,0.72)',
-    paddingHorizontal: spacing.lg,
-    ...typography.body,
-    color: colors.primaryNavy,
-    letterSpacing: 4,
+  codeInput: {
     textAlign: 'center',
+    letterSpacing: 8,
+    fontFamily: theme.typography.body[600],
   },
   errorText: {
-    ...typography.bodySmall,
-    color: colors.error,
-    marginBottom: spacing.md,
-  },
-  primaryBtn: {
-    marginTop: spacing.sm,
-  },
-  resendWrap: {
-    marginTop: spacing.xxl,
-    alignItems: 'center',
-  },
-  resendText: {
-    ...typography.body,
-    color: colors.mutedText,
-  },
-  resendAccent: {
-    color: colors.accentBlue,
-    fontWeight: '600',
-  },
-  resendDisabled: {
-    opacity: 0.5,
+    marginBottom: 12,
+    fontFamily: theme.typography.body[500],
+    fontSize: 12.5,
+    color: theme.colors.danger,
   },
   sentHint: {
-    ...typography.bodySmall,
-    color: colors.success,
+    marginTop: 10,
+    fontFamily: theme.typography.body[600],
+    fontSize: 13,
+    color: theme.colors.okDeep,
     textAlign: 'center',
-    marginTop: spacing.sm,
-    fontWeight: '600',
   },
-});
+}));

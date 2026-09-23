@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 
+import { ScreenTransition } from '../components/ScreenTransition';
 import { AgencyFolderDetailScreen } from '../screens/AgencyFolderDetailScreen';
 import { AgencyFoldersScreen } from '../screens/AgencyFoldersScreen';
 import type { AgencyNavigationProp, AgencyStackParamList } from './agencyTypes';
@@ -30,14 +31,19 @@ export function AgencyStack(): React.ReactElement {
     [],
   );
 
-  if (route.screen === 'AgencyFolderDetail') {
-    return (
-      <AgencyFolderDetailScreen
-        navigation={{ goBack: navigation.goBack }}
-        route={{ params: route.params }}
-      />
-    );
-  }
-
-  return <AgencyFoldersScreen navigation={{ navigate: navigation.navigate }} />;
+  return (
+    <ScreenTransition
+      transitionKey={route.screen}
+      kind={route.screen === 'AgencyFolderDetail' ? 'push' : 'pop'}
+    >
+      {route.screen === 'AgencyFolderDetail' ? (
+        <AgencyFolderDetailScreen
+          navigation={{ goBack: navigation.goBack }}
+          route={{ params: route.params }}
+        />
+      ) : (
+        <AgencyFoldersScreen navigation={{ navigate: navigation.navigate }} />
+      )}
+    </ScreenTransition>
+  );
 }
