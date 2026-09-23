@@ -1,10 +1,6 @@
 // Design tokens as SWITCHABLE PALETTES. `palettes.comfort` (Organic) and
 // `palettes.blue` share one `Palette` shape; the active one is chosen at runtime
 // by themeStore and read through useTheme() / createThemedStyles().
-//
-// Legacy note: src/theme/colors.ts / typography.ts / spacing.ts are the old
-// static system still imported by files the redesign hasn't converted. They are
-// retired file-by-file during the 8.5 audit; this comment goes once they're gone.
 
 import type { TextStyle, ViewStyle } from 'react-native';
 
@@ -64,6 +60,8 @@ type PaletteColors = {
   lineOnDark: string;
   faintOnDark: string;
   strongOnDark: string;
+  /** Warm off-white for text/icons on the media viewer's dark chrome. */
+  cream: string;
 };
 
 export type Palette = {
@@ -98,6 +96,7 @@ const sharedDark = {
   lineOnDark: 'rgba(255,255,255,0.2)',
   faintOnDark: 'rgba(255,255,255,0.55)',
   strongOnDark: 'rgba(255,255,255,0.9)',
+  cream: '#fdfaf4',
 } as const;
 
 const DISPLAY_LINE_HEIGHT_RATIO = 1.12;

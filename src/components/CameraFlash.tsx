@@ -1,6 +1,6 @@
 import React, { memo, useEffect, useRef } from 'react';
 import { Animated, StyleSheet } from 'react-native';
-import { colors } from '../theme/colors';
+import { createThemedStyles } from '../theme/createThemedStyles';
 
 type CameraFlashProps = {
   visible: boolean;
@@ -8,6 +8,7 @@ type CameraFlashProps = {
 };
 
 function CameraFlashBase({ visible, onComplete }: CameraFlashProps): React.ReactElement | null {
+  const styles = useStyles();
   const opacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -36,10 +37,11 @@ function CameraFlashBase({ visible, onComplete }: CameraFlashProps): React.React
 
 export const CameraFlash = memo(CameraFlashBase);
 
-const styles = StyleSheet.create({
+const useStyles = createThemedStyles((t) => StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: colors.card,
+    // Pure white in both themes — a flash, not a card surface.
+    backgroundColor: t.colors.white,
     zIndex: 999,
   },
-});
+}));

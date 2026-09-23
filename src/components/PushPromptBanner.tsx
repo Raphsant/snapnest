@@ -4,9 +4,7 @@ import * as Notifications from 'expo-notifications';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { getPermissionStatus, requestPermissionAndRegister } from '../services/notificationService';
-import { colors } from '../theme/colors';
-import { spacing } from '../theme/spacing';
-import { typography } from '../theme/typography';
+import { createThemedStyles } from '../theme/createThemedStyles';
 
 /** Matches the existing `snapnest-*` AsyncStorage key convention. */
 const PROMPT_SEEN_KEY = 'snapnest-push-prompt-seen';
@@ -110,6 +108,7 @@ function PushPromptBannerBase({
   onDismiss,
   bottomOffset,
 }: PushPromptBannerProps): React.ReactElement | null {
+  const styles = useStyles();
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(12)).current;
 
@@ -157,57 +156,57 @@ function PushPromptBannerBase({
 
 export const PushPromptBanner = memo(PushPromptBannerBase);
 
-const styles = StyleSheet.create({
+const useStyles = createThemedStyles((t) => StyleSheet.create({
   host: {
     position: 'absolute',
     left: 0,
     right: 0,
     alignItems: 'center',
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: 16,
     zIndex: 30,
   },
   card: {
     width: '100%',
     maxWidth: 420,
-    backgroundColor: 'rgba(16,42,67,0.86)',
+    backgroundColor: t.colors.toastBg,
     borderRadius: 20,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    gap: spacing.md,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 12,
   },
   message: {
-    ...typography.bodySmall,
-    color: colors.card,
-    fontWeight: '600',
+    fontFamily: t.typography.body[600],
+    fontSize: 14,
+    color: t.colors.white,
   },
   actions: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
-    gap: spacing.sm,
+    gap: 8,
   },
   secondaryAction: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: t.radius.sm,
   },
   primaryAction: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    borderRadius: 14,
-    backgroundColor: colors.accentBlue,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: t.radius.sm,
+    backgroundColor: t.colors.accent,
   },
   actionPressed: {
     opacity: 0.75,
   },
   secondaryLabel: {
-    ...typography.bodySmall,
-    color: colors.tabInactive,
-    fontWeight: '600',
+    fontFamily: t.typography.body[600],
+    fontSize: 14,
+    color: t.colors.faint,
   },
   primaryLabel: {
-    ...typography.bodySmall,
-    color: colors.card,
-    fontWeight: '700',
+    fontFamily: t.typography.body[700],
+    fontSize: 14,
+    color: t.colors.white,
   },
-});
+}));
